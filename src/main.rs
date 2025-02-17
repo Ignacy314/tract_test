@@ -46,8 +46,8 @@ fn main() {
                 write!(writer, "[").unwrap();
                 col.iter().for_each(|c| write!(writer, "{c},").unwrap());
                 writeln!(writer, "],").unwrap();
+                f += 1;
             }
-            f += 1;
             if f >= args.frames {
                 break;
             }
