@@ -38,8 +38,9 @@ fn main() {
         j += 1;
         if j == 4096 {
             j = 0;
-            let harm = spectro.process_samples(&buf).unwrap();
+            let harm = spectro.process_samples(&buf);
             if i > 4096 {
+                let harm = harm.unwrap();
                 let col = spectro.hpss_last(harm);
                 write!(writer, "[").unwrap();
                 col.iter().for_each(|c| write!(writer, "{c},").unwrap());
