@@ -43,6 +43,7 @@ fn main() {
             if i > 4096 {
                 let harm = harm.unwrap();
                 let col = spectro.hpss_last(harm);
+                println!("{}", col.len());
                 write!(writer, "[").unwrap();
                 col.iter().for_each(|c| write!(writer, "{c},").unwrap());
                 writeln!(writer, "],").unwrap();
