@@ -31,6 +31,7 @@ fn main() {
     let samples = reader.samples::<i32>();
     let mut buf = [0f64; 4096];
     let mut j = 0;
+    let mut f = 0;
     write!(writer, "[").unwrap();
     for (i, s) in samples.enumerate() {
         let sample = s.unwrap();
@@ -45,6 +46,10 @@ fn main() {
                 write!(writer, "[").unwrap();
                 col.iter().for_each(|c| write!(writer, "{c},").unwrap());
                 writeln!(writer, "],").unwrap();
+            }
+            f += 1;
+            if f >= args.frames {
+                break;
             }
         }
     }
