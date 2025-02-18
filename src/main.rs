@@ -37,9 +37,9 @@ fn main() {
     let mut data = Vec::new();
     for s in samples {
         let sample = s.unwrap();
-        if let Some(harm) = stft.process_samples(&[sample as f64]) {
+        if let Some((harm, perc)) = stft.process_samples(&[sample as f64]) {
             //let harm = harm.unwrap();
-            let col = stft.hpss_one(harm);
+            let col = stft.hpss_one(harm, &perc);
             //println!("{}", col.len());
             //write!(writer, "[").unwrap();
             data.push(col);

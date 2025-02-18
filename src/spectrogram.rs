@@ -1,3 +1,4 @@
+use std::array;
 use std::f64::consts::PI;
 use std::sync::Arc;
 
@@ -10,8 +11,8 @@ use strider::{SliceRing, SliceRingImpl};
 pub const N_FFT: usize = 8192;
 pub const HOP_LENGTH: usize = 4096;
 const FILTER_WIDTH: usize = 31;
-const COLS: usize = FILTER_WIDTH * 2 + 1;
-const ROWS: usize = 4097;
+const COLS: usize = FILTER_WIDTH;
+const ROWS: usize = N_FFT / 2 + 1;
 
 fn new_hann_window(size: usize) -> Vec<f64> {
     let mut window = Vec::with_capacity(size);
@@ -35,7 +36,11 @@ pub struct Stft {
     indata: Vec<f64>,
     outdata: Vec<Complex<f64>>,
     scratch: Vec<Complex<f64>>,
+    //array: Array2<f64>,
+    //index: usize.
     columns: CircularBuffer<COLS, Vec<Complex<f64>>>,
+    row_filters: [Filter<f64>; ROWS],
+    //rows: [CircularBuffer<COLS, f64>; ROWS],
 }
 
 impl Stft {
@@ -55,7 +60,11 @@ impl Stft {
             indata,
             outdata,
             scratch,
+            //array: Array2::zeros((COLS, ROWS)),
+            //index: 0,
             columns: CircularBuffer::new(),
+            row_filters: array::from_fn(|_| Filter::new(FILTER_WIDTH)),
+            //rows: [ const { CircularBuffer::new() }; ROWS],
         }
     }
 
@@ -63,22 +72,35 @@ impl Stft {
         self.n_fft <= self.sample_ring.len()
     }
 
-    pub fn process_samples(&mut self, samples: &[f64]) -> Option<Vec<f64>> {
+    pub fn process_samples(&mut self, samples: &[f64]) -> Option<(Vec<f64>, Vec<f64>)> {
         self.sample_ring.push_many_back(samples);
 
         let mut out = None;
         while self.contains_enough_to_compute() {
             self.compute_into_outdata();
             let col = self.outdata.clone();
+            let mut filtered_row = Vec::new();
 
             let mut filter = Filter::new(FILTER_WIDTH);
-            let mut filtered = Vec::new();
-            col.iter().for_each(|&s| {
-                filtered.push(filter.consume(s.norm()));
+            let mut filtered_col = Vec::new();
+            self.row_filters.iter_mut().zip(col.iter()).for_each(|(r, &s)| {
+                let sn = s.norm();
+                filtered_col.push(filter.consume(sn));
+                filtered_row.push(r.consume(sn));
             });
+            //col.iter().zip(self.rows.iter_mut()).for_each(|s| {
+            //    let sn = s.norm();
+            //    filtered.push(filter.consume(se);
+            //    //r.
+            //});
+            //*self.array.column_mut(self.index) = arr1(col.iter());
+            //self.index =
+            //for (row, col) in self.rows.iter_mut().zip(col.iter()) {
+            //    row.push_back(col.norm())
+            //}
             self.columns.push_back(col);
 
-            out = Some(filtered);
+            out = Some((filtered_col, filtered_row));
             self.sample_ring.drop_many_front(self.hop_length);
         }
         out
@@ -99,23 +121,23 @@ impl Stft {
         println!("{}", self.outdata.len());
     }
 
-    pub fn hpss_one(&mut self, mut harm: Vec<f64>) -> Vec<f64> {
-        let perc = {
-            let mut perc = Vec::new();
-            let iter =
-                (0..ROWS).map(|row_idx| self.columns.iter().flatten().skip(row_idx).step_by(COLS));
-            for row in iter {
-                let mut filtered = Vec::new();
-                let mut filter = Filter::new(FILTER_WIDTH);
-                row.for_each(|&s| {
-                    filtered.push(filter.consume(s.norm()));
-                });
-                perc.push(*filtered.last().unwrap());
-            }
-            perc
-        };
+    pub fn hpss_one(&mut self, mut harm: Vec<f64>, perc: &[f64]) -> Vec<f64> {
+        //let perc = {
+        //    let mut perc = Vec::new();
+        //    let iter =
+        //        (0..ROWS).map(|row_idx| self.columns.iter().flatten().skip(row_idx).step_by(COLS));
+        //    for row in iter {
+        //        let mut filtered = Vec::new();
+        //        let mut filter = Filter::new(FILTER_WIDTH);
+        //        row.for_each(|&s| {
+        //            filtered.push(filter.consume(s.norm()));
+        //        });
+        //        perc.push(*filtered.last().unwrap());
+        //    }
+        //    perc
+        //};
 
-        let mask = Self::softmask_one(&harm, &perc);
+        let mask = Self::softmask_one(&harm, perc);
         for (h, m) in harm.iter_mut().zip(mask) {
             *h *= m
         }
