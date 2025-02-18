@@ -86,6 +86,7 @@ impl Stft {
 
     fn compute_into_outdata(&mut self) {
         self.sample_ring.read_many_front(&mut self.indata[..]);
+        print!("{}, ", self.indata.len());
 
         for (r, w) in self.indata.iter_mut().zip(self.window.iter()) {
             *r *= *w;
@@ -94,6 +95,8 @@ impl Stft {
         self.forward
             .process_with_scratch(&mut self.indata, &mut self.outdata, &mut self.scratch)
             .unwrap();
+
+        println!("{}", self.outdata.len());
     }
 
     pub fn hpss_one(&mut self, mut harm: Vec<f64>) -> Vec<f64> {

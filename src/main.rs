@@ -4,7 +4,7 @@ use std::io::{BufWriter, Write};
 use clap::Parser;
 use serde::Serialize;
 
-use self::spectrogram::{HOP_LENGTH, N_FFT, Stft};
+use self::spectrogram::{Stft, HOP_LENGTH, N_FFT};
 
 mod spectrogram;
 
@@ -30,34 +30,48 @@ fn main() {
 
     let mut stft = Stft::new(N_FFT, HOP_LENGTH);
     let samples = reader.samples::<i32>();
-    let mut buf = [0f64; 4096];
-    let mut j = 0;
+    //let mut buf = [0f64; 4096];
+    //let mut j = 0;
     let mut f = 0;
     //write!(writer, "[").unwrap();
     //let mut spectro = Spectro { data: vec![] };
     let mut data = Vec::new();
-    for (i, s) in samples.enumerate() {
+    for s in samples {
         let sample = s.unwrap();
-        buf[j] = sample as f64;
-        j += 1;
-        if j == 4096 {
-            j = 0;
-            let harm = stft.process_samples(&buf);
-            if i > 4096 {
-                let harm = harm.unwrap();
-                let col = stft.hpss_one(harm);
-                //println!("{}", col.len());
-                //write!(writer, "[").unwrap();
-                data.push(col);
-                //col.iter().for_each(|c| write!(writer, "{c},").unwrap());
-                //writeln!(writer, "],").unwrap();
-                f += 1;
-                println!("{f}");
-            }
+        if let Some(harm) = stft.process_samples(&[sample as f64]) {
+            //let harm = harm.unwrap();
+            let col = stft.hpss_one(harm);
+            //println!("{}", col.len());
+            //write!(writer, "[").unwrap();
+            data.push(col);
+            //col.iter().for_each(|c| write!(writer, "{c},").unwrap());
+            //writeln!(writer, "],").unwrap();
+            f += 1;
+            println!("{f}");
             if f >= args.frames {
                 break;
             }
         }
+        //buf[j] = sample as f64;
+        //j += 1;
+        //if j == 4096 {
+        //    j = 0;
+        //    let harm = stft.process_samples(&buf);
+        //    if let Some(harm) = harm {
+        //        //let harm = harm.unwrap();
+        //        let col = stft.hpss_one(harm);
+        //        //println!("{}", col.len());
+        //        //write!(writer, "[").unwrap();
+        //        data.push(col);
+        //        //col.iter().for_each(|c| write!(writer, "{c},").unwrap());
+        //        //writeln!(writer, "],").unwrap();
+        //        f += 1;
+        //        println!("{f}");
+        //    }
+        //    if f >= args.frames {
+        //        break;
+        //    }
+        //}
     }
     serde_json::to_writer(writer, &data).unwrap();
     //write!(writer, "]").unwrap();
