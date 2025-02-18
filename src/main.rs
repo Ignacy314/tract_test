@@ -1,7 +1,7 @@
 use std::error::Error;
-use std::io::Write;
 use std::fs::File;
 use std::io::BufWriter;
+use std::io::Write;
 
 use clap::{Parser, Subcommand};
 use tract_onnx::prelude::*;
@@ -38,14 +38,18 @@ struct GenerateArgs {
 
 #[derive(clap::Parser)]
 struct InferArgs {
+    /// Number of sample to start at
     #[arg(short, long)]
     start_sample: u32,
-    #[arg(short, long)]
-    output_file: String,
+    //#[arg(short, long)]
+    //output_file: String,
+    /// Path to the input wav file
     #[arg(short, long)]
     input_file: String,
+    /// Number of frames to process
     #[arg(short, long)]
     frames: usize,
+    /// Path to the onnx model
     #[arg(short, long)]
     model: String,
 }
@@ -82,8 +86,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             let samples = reader.samples::<i32>();
             for s in samples {
                 let sample = s.unwrap();
-                if let Some((harm, perc)) = stft.process_samples(&[sample as f64]) {
-                    let col = stft.hpss_one(harm, &perc);
+                if let Some((mut col, harm, perc)) = stft.process_samples(&[sample as f64]) {
+                    stft.hpss_one(&mut col, &harm, &perc);
                     assert_eq!(col.len(), 4097);
                     let scaled = min_max_scale(&col);
                     for s in &scaled[..4096] {
@@ -99,33 +103,28 @@ fn main() -> Result<(), Box<dyn Error>> {
             let model = model.into_optimized()?;
             let model = model.into_runnable()?;
 
-            //let writer = BufWriter::new(File::create(args.output_file).unwrap());
-
             let mut reader = hound::WavReader::open(args.input_file).unwrap();
             reader.seek(args.start_sample).unwrap();
 
             let mut stft = Stft::new(N_FFT, HOP_LENGTH);
             let samples = reader.samples::<i32>();
             let mut f = 0;
-            //let mut data = Vec::new();
             for s in samples {
                 let sample = s.unwrap();
-                if let Some((harm, perc)) = stft.process_samples(&[sample as f64]) {
-                    let col = stft.hpss_one(harm, &perc);
+                if let Some((mut col, harm, perc)) = stft.process_samples(&[sample as f64]) {
+                    stft.hpss_one(&mut col, &harm, &perc);
                     assert_eq!(col.len(), 4097);
                     let scaled = min_max_scale(&col);
                     let input: Tensor = tract_ndarray::Array1::from_vec(scaled).into();
                     let result = model.run(tvec!(input.into()))?;
                     println!("{f}: result: {:?}", result[0].to_array_view::<TDim>());
 
-                    //data.push(col);
                     f += 1;
                     if f >= args.frames {
                         break;
                     }
                 }
             }
-            //serde_json::to_writer(writer, &data).unwrap();
         }
     }
 
