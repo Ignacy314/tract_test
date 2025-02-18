@@ -71,13 +71,11 @@ impl Stft {
             self.compute_into_outdata();
             let col = self.outdata.clone();
 
-            // TODO hpss
             let mut filter = Filter::new(FILTER_WIDTH);
             let mut filtered = Vec::new();
             col.iter().for_each(|&s| {
                 filtered.push(filter.consume(s.norm()));
             });
-            //self.filtered_columns.push_back(filtered);
             self.columns.push_back(col);
 
             out = Some(filtered);
@@ -96,8 +94,6 @@ impl Stft {
         self.forward
             .process_with_scratch(&mut self.indata, &mut self.outdata, &mut self.scratch)
             .unwrap();
-
-        self.indata.clear();
     }
 
     pub fn hpss_one(&mut self, mut harm: Vec<f64>) -> Vec<f64> {
