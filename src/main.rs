@@ -1,7 +1,9 @@
+use std::error::Error;
 use std::fs::File;
 use std::io::BufWriter;
 
 use clap::Parser;
+use tract_onnx::prelude::*;
 
 use self::spectrogram::{Stft, HOP_LENGTH, N_FFT};
 
@@ -17,10 +19,22 @@ struct Args {
     input_file: String,
     #[arg(short, long)]
     frames: usize,
+    #[arg(short, long)]
+    model: String,
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
+
+    let model = tract_onnx::onnx()
+        // load the model
+        .model_for_path(args.model)?
+        // specify input type and shape
+        .with_input_fact(0, f64::fact([4097]).into())?
+        // optimize the model
+        .into_optimized()?
+        // make the model runnable and fix its inputs and outputs
+        .into_runnable()?;
 
     let writer = BufWriter::new(File::create(args.output_file).unwrap());
 
@@ -29,49 +43,29 @@ fn main() {
 
     let mut stft = Stft::new(N_FFT, HOP_LENGTH);
     let samples = reader.samples::<i32>();
-    //let mut buf = [0f64; 4096];
-    //let mut j = 0;
     let mut f = 0;
-    //write!(writer, "[").unwrap();
-    //let mut spectro = Spectro { data: vec![] };
     let mut data = Vec::new();
     for s in samples {
         let sample = s.unwrap();
         if let Some((harm, perc)) = stft.process_samples(&[sample as f64]) {
-            //let harm = harm.unwrap();
             let col = stft.hpss_one(harm, &perc);
-            //println!("{}", col.len());
-            //write!(writer, "[").unwrap();
+            let input: Tensor = tract_ndarray::Array1::from_vec(col.clone()).into();
+            let result = model.run(tvec!(input.into()))?;
+            //let best = result[0]
+            //    .to_array_view::<f32>()?
+            //    .iter()
+            //    .copied()
+            //    .zip(1..)
+            //    .max_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+            println!("{f}: result: {:?}", result[0].to_array_view::<f32>());
+
             data.push(col);
-            //col.iter().for_each(|c| write!(writer, "{c},").unwrap());
-            //writeln!(writer, "],").unwrap();
             f += 1;
-            println!("{f}");
             if f >= args.frames {
                 break;
             }
         }
-        //buf[j] = sample as f64;
-        //j += 1;
-        //if j == 4096 {
-        //    j = 0;
-        //    let harm = stft.process_samples(&buf);
-        //    if let Some(harm) = harm {
-        //        //let harm = harm.unwrap();
-        //        let col = stft.hpss_one(harm);
-        //        //println!("{}", col.len());
-        //        //write!(writer, "[").unwrap();
-        //        data.push(col);
-        //        //col.iter().for_each(|c| write!(writer, "{c},").unwrap());
-        //        //writeln!(writer, "],").unwrap();
-        //        f += 1;
-        //        println!("{f}");
-        //    }
-        //    if f >= args.frames {
-        //        break;
-        //    }
-        //}
     }
     serde_json::to_writer(writer, &data).unwrap();
-    //write!(writer, "]").unwrap();
+    Ok(())
 }

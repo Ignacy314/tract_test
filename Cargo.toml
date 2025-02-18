@@ -13,4 +13,4 @@ realfft = "3.4.0"
 serde = { version = "1.0.217", features = ["derive"] }
 serde_json = "1.0.138"
 strider = "0.1.3"
-# tract-onnx = "0.21.8"
+tract-onnx = "0.21.8"
