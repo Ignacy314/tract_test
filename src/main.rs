@@ -41,8 +41,6 @@ struct InferArgs {
     /// Number of sample to start at
     #[arg(short, long)]
     start_sample: u32,
-    //#[arg(short, long)]
-    //output_file: String,
     /// Path to the input wav file
     #[arg(short, long)]
     input_file: String,
