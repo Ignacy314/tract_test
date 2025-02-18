@@ -1,8 +1,7 @@
 use std::fs::File;
-use std::io::{BufWriter, Write};
+use std::io::BufWriter;
 
 use clap::Parser;
-use serde::Serialize;
 
 use self::spectrogram::{Stft, HOP_LENGTH, N_FFT};
 
