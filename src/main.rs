@@ -27,7 +27,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
 
     let model = tract_onnx::onnx().model_for_path(args.model)?;
-    let model = model.with_input_fact(0, f64::fact([1, 4097]).into())?;
+    let model = model.with_input_fact(0, f64::fact([4097]).into())?;
     let model = model.into_optimized()?;
     let model = model.into_runnable()?;
 
@@ -56,7 +56,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let col = stft.hpss_one(harm, &perc);
             let input: Tensor = tract_ndarray::Array1::from_vec(col.clone()).into();
             let result = model.run(tvec!(input.into()))?;
-            println!("{f}: result: {:?}", result[0].to_array_view::<f32>());
+            println!("{f}: result: {:?}", result[0].to_array_view::<f64>());
             //let best = result[0]
             //    .to_array_view::<f32>()?
             //    .iter()
