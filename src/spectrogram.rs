@@ -117,8 +117,6 @@ impl Stft {
         self.forward
             .process_with_scratch(&mut self.indata, &mut self.outdata, &mut self.scratch)
             .unwrap();
-
-        println!("{}", self.outdata.len());
     }
 
     pub fn hpss_one(&mut self, mut harm: Vec<f64>, perc: &[f64]) -> Vec<f64> {
