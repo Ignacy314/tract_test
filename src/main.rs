@@ -27,7 +27,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
 
     let model = tract_onnx::onnx().model_for_path(args.model)?;
-    let model = model.with_input_fact(0, f64::fact([4097]).into())?;
+    let model = model.with_input_fact(0, f64::fact([1, 4097]).into())?;
     let model = model.into_optimized()?;
     let model = model.into_runnable()?;
 
