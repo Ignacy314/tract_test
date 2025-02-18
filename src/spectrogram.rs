@@ -1,51 +1,105 @@
-use circular_buffer::CircularBuffer;
-use librustosa::stft::STFT;
-use median::Filter;
+use std::f64::consts::PI;
+use std::sync::Arc;
 
-const WINDOW_SIZE: usize = 8192;
-const STEP_SIZE: usize = 4096;
+use circular_buffer::CircularBuffer;
+use median::Filter;
+use realfft::num_complex::Complex;
+use realfft::{RealFftPlanner, RealToComplex};
+use strider::{SliceRing, SliceRingImpl};
+
+pub const N_FFT: usize = 8192;
+pub const HOP_LENGTH: usize = 4096;
 const FILTER_WIDTH: usize = 31;
 const COLS: usize = FILTER_WIDTH * 2 + 1;
 const ROWS: usize = 4097;
 
-pub struct Spectro {
-    stft: STFT<f64>,
-    columns: CircularBuffer<COLS, Vec<f64>>,
-    //filtered_columns: CircularBuffer<COLS, Vec<f64>>,
+fn new_hann_window(size: usize) -> Vec<f64> {
+    let mut window = Vec::with_capacity(size);
+
+    for n in 0..size {
+        let x = n as f64 / (size - 1) as f64;
+        let value = f64::from(0.5 * (1.0 - (2.0 * PI * x).cos()));
+        window.push(value);
+    }
+
+    window
 }
 
-impl Spectro {
-    pub fn new() -> Self {
+pub struct STFT {
+    n_fft: usize,
+    hop_length: usize,
+    window: Vec<f64>,
+    sample_ring: SliceRingImpl<f64>,
+    //planner: RealFftPlanner<f64>,
+    forward: Arc<dyn RealToComplex<f64>>,
+    indata: Vec<f64>,
+    outdata: Vec<Complex<f64>>,
+    columns: CircularBuffer<COLS, Vec<Complex<f64>>>,
+}
+
+impl STFT {
+    pub fn new(n_fft: usize, hop_length: usize) -> Self {
+        let mut planner = RealFftPlanner::new();
+        let forward = planner.plan_fft_forward(n_fft);
+        let indata = forward.make_input_vec();
+        let outdata = forward.make_output_vec();
         Self {
-            stft: STFT::new(WINDOW_SIZE, STEP_SIZE).unwrap(),
+            n_fft,
+            hop_length,
+            window: new_hann_window(n_fft),
+            sample_ring: SliceRingImpl::new(),
+            //planner,
+            forward,
+            indata,
+            outdata,
             columns: CircularBuffer::new(),
-            //filtered_columns: CircularBuffer::new(),
         }
+    }
+
+    pub fn append_samples(&mut self, input: &[f64]) {
+        self.sample_ring.push_many_back(input);
+    }
+
+    pub fn contains_enough_to_compute(&self) -> bool {
+        self.n_fft <= self.sample_ring.len()
     }
 
     pub fn process_samples(&mut self, samples: &[f64]) -> Option<Vec<f64>> {
-        self.stft.append_samples(samples);
-        let mut res = None;
-        while self.stft.contains_enough_to_compute() {
-            let col = self.stft.compute_column().unwrap();
+        self.sample_ring.push_many_back(samples);
 
+        let mut out = None;
+        while self.contains_enough_to_compute() {
+            self.compute_into_outdata();
+            let col = self.outdata.clone();
+
+            // TODO hpss
             let mut filter = Filter::new(FILTER_WIDTH);
             let mut filtered = Vec::new();
             col.iter().for_each(|&s| {
-                filtered.push(filter.consume(s));
+                filtered.push(filter.consume(s.re));
             });
             //self.filtered_columns.push_back(filtered);
-            res = Some(filtered);
             self.columns.push_back(col);
 
-            self.stft.move_to_next_column();
+            out = Some(filtered);
+            self.sample_ring.drop_many_front(self.hop_length);
         }
-        res
+        out
     }
 
-    pub fn hpss_last(&mut self, mut harm: Vec<f64>) -> Vec<f64> {
-        //let mut harm = self.filtered_columns.back().unwrap();
+    fn compute_into_outdata(&mut self) {
+        self.sample_ring.read_many_front(&mut self.indata[..]);
 
+        for (r, w) in self.indata.iter_mut().zip(self.window.iter()) {
+            *r *= *w;
+        }
+
+        self.forward
+            .process(&mut self.indata, &mut self.outdata)
+            .unwrap();
+    }
+
+    pub fn hpss_one(&mut self, mut harm: Vec<f64>) -> Vec<f64> {
         let perc = {
             let mut perc = Vec::new();
             let iter =
@@ -54,7 +108,7 @@ impl Spectro {
                 let mut filtered = Vec::new();
                 let mut filter = Filter::new(FILTER_WIDTH);
                 row.for_each(|&s| {
-                    filtered.push(filter.consume(s));
+                    filtered.push(filter.consume(s.re));
                 });
                 perc.push(*filtered.last().unwrap());
             }
@@ -64,36 +118,9 @@ impl Spectro {
         let mask = Self::softmask_one(&harm, &perc);
         for (h, m) in harm.iter_mut().zip(mask) {
             *h *= m
-        };
+        }
         harm
     }
-
-    //pub fn hpss_full(&mut self) -> Vec<Vec<f64>> {
-    //    let mut harm = self.filtered_columns.to_vec();
-    //
-    //    let perc = {
-    //        let mut perc = Vec::new();
-    //        let iter =
-    //            (0..ROWS).map(|row_idx| self.columns.iter().flatten().skip(row_idx).step_by(COLS));
-    //        for row in iter {
-    //            let mut filtered = Vec::new();
-    //            let mut filter = Filter::new(FILTER_WIDTH);
-    //            row.for_each(|&s| {
-    //                filtered.push(filter.consume(s));
-    //            });
-    //            perc.push(filtered);
-    //        }
-    //        perc
-    //    };
-    //
-    //    let mask = Self::softmask(&harm, &perc);
-    //    for (hh, mm) in harm.iter_mut().zip(mask) {
-    //        for (h, m) in hh.iter_mut().zip(mm) {
-    //            *h *= m;
-    //        }
-    //    }
-    //    harm
-    //}
 
     fn softmask_one(x: &[f64], y: &[f64]) -> Vec<f64> {
         let z = x.iter().zip(y).map(|(x, y)| {
@@ -119,39 +146,152 @@ impl Spectro {
 
         mask
     }
-
-    //fn softmask(x: &[Vec<f64>], y: &[Vec<f64>]) -> Vec<Vec<f64>> {
-    //    let z = x.iter().zip(y).map(|(xx, yy)| {
-    //        xx.iter().zip(yy).map(|(x, y)| {
-    //            let maxi = x.max(*y);
-    //            if maxi < f64::MIN_POSITIVE {
-    //                (1.0, false)
-    //            } else {
-    //                (maxi, true)
-    //            }
-    //        })
-    //    });
-    //
-    //    let mut mask = x
-    //        .iter()
-    //        .zip(z.clone())
-    //        .map(|(xx, zz)| xx.iter().zip(zz).map(|(x, z)| (x / z.0).powi(2)).collect::<Vec<f64>>()).collect::<Vec<Vec<f64>>>();
-    //
-    //    let ref_mask = y
-    //        .iter()
-    //        .zip(z.clone())
-    //        .map(|(yy, zz)| yy.iter().zip(zz).map(|(y, z)| (y / z.0).powi(2)));
-    //
-    //    for ((mm, rr), zz) in (mask.iter_mut().zip(ref_mask)).zip(z) {
-    //        for ((m, r), z) in (mm.iter_mut().zip(rr)).zip(zz) {
-    //            if z.1 {
-    //                *m /= *m + r
-    //            } else {
-    //                *m = 0.5
-    //            }
-    //        }
-    //    }
-    //
-    //    mask
-    //}
 }
+
+//pub struct Spectro {
+//    stft: STFT<f64>,
+//    columns: CircularBuffer<COLS, Vec<f64>>,
+//    //filtered_columns: CircularBuffer<COLS, Vec<f64>>,
+//}
+//
+//impl Spectro {
+//    pub fn new() -> Self {
+//        Self {
+//            stft: STFT::new(WINDOW_SIZE, STEP_SIZE).unwrap(),
+//            columns: CircularBuffer::new(),
+//            //filtered_columns: CircularBuffer::new(),
+//        }
+//    }
+//
+//    pub fn process_samples(&mut self, samples: &[f64]) -> Option<Vec<f64>> {
+//        self.stft.append_samples(samples);
+//        let mut res = None;
+//        while self.stft.contains_enough_to_compute() {
+//            let col = self.stft.compute_column().unwrap();
+//
+//            let mut filter = Filter::new(FILTER_WIDTH);
+//            let mut filtered = Vec::new();
+//            col.iter().for_each(|&s| {
+//                filtered.push(filter.consume(s));
+//            });
+//            //self.filtered_columns.push_back(filtered);
+//            res = Some(filtered);
+//            self.columns.push_back(col);
+//
+//            self.stft.move_to_next_column();
+//        }
+//        res
+//    }
+//
+//    pub fn hpss_last(&mut self, mut harm: Vec<f64>) -> Vec<f64> {
+//        //let mut harm = self.filtered_columns.back().unwrap();
+//
+//        let perc = {
+//            let mut perc = Vec::new();
+//            let iter =
+//                (0..ROWS).map(|row_idx| self.columns.iter().flatten().skip(row_idx).step_by(COLS));
+//            for row in iter {
+//                let mut filtered = Vec::new();
+//                let mut filter = Filter::new(FILTER_WIDTH);
+//                row.for_each(|&s| {
+//                    filtered.push(filter.consume(s));
+//                });
+//                perc.push(*filtered.last().unwrap());
+//            }
+//            perc
+//        };
+//
+//        let mask = Self::softmask_one(&harm, &perc);
+//        for (h, m) in harm.iter_mut().zip(mask) {
+//            *h *= m
+//        };
+//        harm
+//    }
+//
+//    //pub fn hpss_full(&mut self) -> Vec<Vec<f64>> {
+//    //    let mut harm = self.filtered_columns.to_vec();
+//    //
+//    //    let perc = {
+//    //        let mut perc = Vec::new();
+//    //        let iter =
+//    //            (0..ROWS).map(|row_idx| self.columns.iter().flatten().skip(row_idx).step_by(COLS));
+//    //        for row in iter {
+//    //            let mut filtered = Vec::new();
+//    //            let mut filter = Filter::new(FILTER_WIDTH);
+//    //            row.for_each(|&s| {
+//    //                filtered.push(filter.consume(s));
+//    //            });
+//    //            perc.push(filtered);
+//    //        }
+//    //        perc
+//    //    };
+//    //
+//    //    let mask = Self::softmask(&harm, &perc);
+//    //    for (hh, mm) in harm.iter_mut().zip(mask) {
+//    //        for (h, m) in hh.iter_mut().zip(mm) {
+//    //            *h *= m;
+//    //        }
+//    //    }
+//    //    harm
+//    //}
+//
+//    fn softmask_one(x: &[f64], y: &[f64]) -> Vec<f64> {
+//        let z = x.iter().zip(y).map(|(x, y)| {
+//            let maxi = x.max(*y);
+//            if maxi < f64::MIN_POSITIVE  {
+//                (1.0, false)
+//            } else {
+//                (maxi, true)
+//            }
+//        });
+//
+//        let mut mask = x.iter().zip(z.clone()).map(|(x, z)| (x / z.0).powi(2)).collect::<Vec<f64>>();
+//
+//        let ref_mask = y.iter().zip(z.clone()).map(|(y, z)| (y / z.0).powi(2));
+//
+//        for ((m, r), z) in (mask.iter_mut().zip(ref_mask)).zip(z) {
+//            if z.1 {
+//                *m /= *m + r
+//            } else {
+//                *m = 0.5
+//            }
+//        }
+//
+//        mask
+//    }
+//
+//    //fn softmask(x: &[Vec<f64>], y: &[Vec<f64>]) -> Vec<Vec<f64>> {
+//    //    let z = x.iter().zip(y).map(|(xx, yy)| {
+//    //        xx.iter().zip(yy).map(|(x, y)| {
+//    //            let maxi = x.max(*y);
+//    //            if maxi < f64::MIN_POSITIVE {
+//    //                (1.0, false)
+//    //            } else {
+//    //                (maxi, true)
+//    //            }
+//    //        })
+//    //    });
+//    //
+//    //    let mut mask = x
+//    //        .iter()
+//    //        .zip(z.clone())
+//    //        .map(|(xx, zz)| xx.iter().zip(zz).map(|(x, z)| (x / z.0).powi(2)).collect::<Vec<f64>>()).collect::<Vec<Vec<f64>>>();
+//    //
+//    //    let ref_mask = y
+//    //        .iter()
+//    //        .zip(z.clone())
+//    //        .map(|(yy, zz)| yy.iter().zip(zz).map(|(y, z)| (y / z.0).powi(2)));
+//    //
+//    //    for ((mm, rr), zz) in (mask.iter_mut().zip(ref_mask)).zip(z) {
+//    //        for ((m, r), z) in (mm.iter_mut().zip(rr)).zip(zz) {
+//    //            if z.1 {
+//    //                *m /= *m + r
+//    //            } else {
+//    //                *m = 0.5
+//    //            }
+//    //        }
+//    //    }
+//    //
+//    //    mask
+//    //}
+//}

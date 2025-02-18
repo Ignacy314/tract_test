@@ -3,7 +3,7 @@ use std::io::{BufWriter, Write};
 
 use clap::Parser;
 
-use self::spectrogram::Spectro;
+use self::spectrogram::{HOP_LENGTH, N_FFT, STFT};
 
 mod spectrogram;
 
@@ -27,7 +27,7 @@ fn main() {
     let mut reader = hound::WavReader::open(args.input_file).unwrap();
     reader.seek(args.start_sample).unwrap();
 
-    let mut spectro = Spectro::new();
+    let mut stft = STFT::new(N_FFT, HOP_LENGTH);
     let samples = reader.samples::<i32>();
     let mut buf = [0f64; 4096];
     let mut j = 0;
@@ -39,10 +39,10 @@ fn main() {
         j += 1;
         if j == 4096 {
             j = 0;
-            let harm = spectro.process_samples(&buf);
+            let harm = stft.process_samples(&buf);
             if i > 4096 {
                 let harm = harm.unwrap();
-                let col = spectro.hpss_last(harm);
+                let col = stft.hpss_one(harm);
                 println!("{}", col.len());
                 write!(writer, "[").unwrap();
                 col.iter().for_each(|c| write!(writer, "{c},").unwrap());
