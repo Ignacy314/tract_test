@@ -56,7 +56,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let col = stft.hpss_one(harm, &perc);
             let input: Tensor = tract_ndarray::Array1::from_vec(col.clone()).into();
             let result = model.run(tvec!(input.into()))?;
-            println!("{f}: result: {:?}", result[0].to_array_view::<f64>());
+            println!("{f}: result: {:?}", result[0].to_array_view::<TDim>());
             //let best = result[0]
             //    .to_array_view::<f32>()?
             //    .iter()
