@@ -34,6 +34,7 @@ pub struct Stft {
     forward: Arc<dyn RealToComplex<f64>>,
     indata: Vec<f64>,
     outdata: Vec<Complex<f64>>,
+    scratch: Vec<Complex<f64>>,
     columns: CircularBuffer<COLS, Vec<Complex<f64>>>,
 }
 
@@ -43,6 +44,7 @@ impl Stft {
         let forward = planner.plan_fft_forward(n_fft);
         let indata = forward.make_input_vec();
         let outdata = forward.make_output_vec();
+        let scratch = forward.make_scratch_vec();
         Self {
             n_fft,
             hop_length,
@@ -52,6 +54,7 @@ impl Stft {
             forward,
             indata,
             outdata,
+            scratch,
             columns: CircularBuffer::new(),
         }
     }
@@ -91,8 +94,10 @@ impl Stft {
         }
 
         self.forward
-            .process(&mut self.indata, &mut self.outdata)
+            .process_with_scratch(&mut self.indata, &mut self.outdata, &mut self.scratch)
             .unwrap();
+
+        self.indata.clear();
     }
 
     pub fn hpss_one(&mut self, mut harm: Vec<f64>) -> Vec<f64> {
