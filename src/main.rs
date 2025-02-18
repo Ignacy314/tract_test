@@ -23,6 +23,21 @@ struct Args {
     model: String,
 }
 
+fn min_max_scale(x_vec: &[f64]) -> Vec<f64> {
+    let mut x_max = f64::MIN;
+    let mut x_min = f64::MAX;
+    for &x in x_vec {
+        if x > x_max {
+            x_max = x;
+        }
+        if x < x_min {
+            x_min = x;
+        }
+    }
+    let x_std = x_vec.iter().map(|x| (x - x_min) / (x_max - x_min)).collect::<Vec<_>>();
+    x_std
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
 
@@ -54,7 +69,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         let sample = s.unwrap();
         if let Some((harm, perc)) = stft.process_samples(&[sample as f64]) {
             let col = stft.hpss_one(harm, &perc);
-            let input: Tensor = tract_ndarray::Array1::from_vec(col.clone()).into();
+            let scaled = min_max_scale(&col);
+            let input: Tensor = tract_ndarray::Array1::from_vec(scaled).into();
             let result = model.run(tvec!(input.into()))?;
             println!("{f}: result: {:?}", result[0].to_array_view::<TDim>());
             //let best = result[0]
