@@ -1453,6 +1453,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustft"
+version = "0.0.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fff74740a2666cdba211cfc833ee53d6c406b2aae7af1b1029954c624a8756c5"
+dependencies = [
+ "log",
+ "ndarray 0.16.1",
+ "rustfft",
+]
+
+[[package]]
 name = "rustix"
 version = "0.38.42"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1920,6 +1931,7 @@ dependencies = [
  "image",
  "librustosa",
  "median",
+ "rustft",
  "tract-onnx",
 ]
 
