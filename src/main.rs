@@ -4,10 +4,10 @@ use std::io::BufWriter;
 use std::io::Write;
 
 use clap::{Parser, Subcommand};
+use image::Luma;
 use tract_onnx::prelude::*;
 
 use self::spectrogram::{Stft, HOP_LENGTH, N_FFT};
-use self::tract_ndarray::IndexLonger;
 
 mod spectrogram;
 
@@ -60,7 +60,7 @@ struct ImgGenArgs {
     /// Path to input wav file
     #[arg(short, long)]
     input: String,
-    /// Path to output directory
+    /// Path to output file
     #[arg(short, long)]
     output: String,
 }
@@ -158,6 +158,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
         Commands::ImgGen(args) => {
             let mut reader = hound::WavReader::open(args.input).unwrap();
+            const HEIGHT: u32 = 4096;
+            let width = reader.duration() / 4096;
+            let mut image = image::GrayImage::new(width, HEIGHT);
+            let mut x: u32 = 0;
+
             let mut stft = Stft::new(N_FFT, HOP_LENGTH);
             let samples = reader.samples::<i32>();
             for s in samples {
@@ -165,12 +170,21 @@ fn main() -> Result<(), Box<dyn Error>> {
                 if let Some(mut col) = stft.process_samples(&[sample as f64]) {
                     Stft::hpss_one(&mut col, &stft.harm, &stft.perc);
                     amplitude_to_db(&mut col);
-                    assert_eq!(col.len(), 4097);
+                    assert_eq!(
+                        col.len(),
+                        4097,
+                        "STFT column length different from N_FFT / 2 + 1 (4097 by default)"
+                    );
                     let scaled = min_max_scale(&col);
+                    for (y, s) in scaled.iter().enumerate() {
+                        image.get_pixel_mut(x, y as u32).0 = [((s * 255.0).round() as u8)];
+                    }
+                    x += 1;
+                    assert!(x < width, "Generated more STFT frames than expected");
                 }
             }
+            image.save(args.output)?;
         }
     }
-
     Ok(())
 }
