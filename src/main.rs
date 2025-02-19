@@ -157,7 +157,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
         Commands::ImgGen(args) => {
             let mut reader = hound::WavReader::open(args.input).unwrap();
-            const HEIGHT: u32 = 4096;
+            const HEIGHT: u32 = 4097;
             let width = reader.duration() / 4096;
             let mut image = image::GrayImage::new(width, HEIGHT);
             let mut x: u32 = 0;
