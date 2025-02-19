@@ -7,6 +7,7 @@ use clap::{Parser, Subcommand};
 use tract_onnx::prelude::*;
 
 use self::spectrogram::{Stft, HOP_LENGTH, N_FFT};
+use self::tract_ndarray::IndexLonger;
 
 mod spectrogram;
 
@@ -144,6 +145,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                     let input: Tensor = tract_ndarray::Array1::from_vec(scaled).into();
                     let result = model.run(tvec!(input.into()))?;
                     println!("{f}: result: {:?}", result[0].to_array_view::<TDim>());
+                    let res = result[0].to_array_view::<TDim>().unwrap();
+                    //let res = result[0].to_array_view::<TDim>().unwrap().get(0).unwrap();
+                    let res2 = res.get(0).unwrap();
+                    println!("{}", res2);
 
                     f += 1;
                     if f >= args.frames {
