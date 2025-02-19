@@ -146,7 +146,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let mlp = mlp.into_runnable()?;
 
             let resnet = tract_onnx::onnx().model_for_path(args.resnet)?;
-            let resnet = resnet.with_input_fact(0, f64::fact([1, 3, 224, 224]).into())?;
+            let resnet = resnet.with_input_fact(0, f32::fact([1, 3, 224, 224]).into())?;
             let resnet = resnet.into_optimized()?;
             let resnet = resnet.into_runnable()?;
 
