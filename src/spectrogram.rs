@@ -104,7 +104,6 @@ impl Stft {
     /// previous call to self.contains_enought_to_compute())
     fn compute_into_outdata(&mut self) {
         self.sample_ring.read_many_front(&mut self.indata[..]);
-        print!("{}, ", self.indata.len());
 
         for (r, w) in self.indata.iter_mut().zip(self.window.iter()) {
             *r *= *w;

@@ -144,11 +144,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                     let scaled = min_max_scale(&col);
                     let input: Tensor = tract_ndarray::Array1::from_vec(scaled).into();
                     let result = model.run(tvec!(input.into()))?;
-                    println!("{f}: result: {:?}", result[0].to_array_view::<TDim>());
+                    //println!("{f}: result: {:?}", result[0].to_array_view::<TDim>());
                     let res = result[0].to_array_view::<TDim>().unwrap();
-                    //let res = result[0].to_array_view::<TDim>().unwrap().get(0).unwrap();
                     let res2 = res.get(0).unwrap();
-                    println!("{}", res2);
+                    println!("{f:6}: {}", res2);
 
                     f += 1;
                     if f >= args.frames {
