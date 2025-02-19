@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 clap = { version = "4.5.29", features = ["derive"] }
 hound = "3.5.1"
+image = "0.25.5"
 median = "0.3.2"
 realfft = "3.4.0"
 strider = "0.1.3"

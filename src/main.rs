@@ -24,6 +24,8 @@ enum Commands {
     Generate(GenerateArgs),
     /// Test model inference
     Infer(InferArgs),
+    /// Generate images for resnet
+    ImgGen(ImgGenArgs),
 }
 
 #[derive(clap::Args)]
@@ -43,13 +45,37 @@ struct InferArgs {
     start_sample: u32,
     /// Path to the input wav file
     #[arg(short, long)]
-    input_file: String,
+    input: String,
     /// Number of frames to process
     #[arg(short, long)]
     frames: usize,
     /// Path to the onnx model
     #[arg(short, long)]
     model: String,
+}
+
+#[derive(clap::Args)]
+struct ImgGenArgs {
+    /// Path to input wav file
+    #[arg(short, long)]
+    input: String,
+    /// Path to output directory
+    #[arg(short, long)]
+    output: String,
+}
+
+fn amplitude_to_db(x_vec: &mut [f64]) {
+    let mut x_max = f64::MIN;
+    for x in x_vec.iter_mut() {
+        *x *= *x;
+        if *x > x_max {
+            x_max = *x;
+        }
+    }
+    let sub = 10.0 * x_max.max(1e-10).log10();
+    for x in x_vec.iter_mut() {
+        *x = (10.0 * x.max(1e-10).log10() - sub).max(-80.0);
+    }
 }
 
 fn min_max_scale(x_vec: &[f64]) -> Vec<f64> {
@@ -84,8 +110,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             let samples = reader.samples::<i32>();
             for s in samples {
                 let sample = s.unwrap();
-                if let Some((mut col, harm, perc)) = stft.process_samples(&[sample as f64]) {
-                    stft.hpss_one(&mut col, &harm, &perc);
+                if let Some(mut col) = stft.process_samples(&[sample as f64]) {
+                    Stft::hpss_one(&mut col, &stft.harm, &stft.perc);
+                    amplitude_to_db(&mut col);
                     assert_eq!(col.len(), 4097);
                     let scaled = min_max_scale(&col);
                     for s in &scaled[..4096] {
@@ -101,7 +128,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let model = model.into_optimized()?;
             let model = model.into_runnable()?;
 
-            let mut reader = hound::WavReader::open(args.input_file).unwrap();
+            let mut reader = hound::WavReader::open(args.input).unwrap();
             reader.seek(args.start_sample).unwrap();
 
             let mut stft = Stft::new(N_FFT, HOP_LENGTH);
@@ -109,8 +136,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             let mut f = 0;
             for s in samples {
                 let sample = s.unwrap();
-                if let Some((mut col, harm, perc)) = stft.process_samples(&[sample as f64]) {
-                    stft.hpss_one(&mut col, &harm, &perc);
+                if let Some(mut col) = stft.process_samples(&[sample as f64]) {
+                    Stft::hpss_one(&mut col, &stft.harm, &stft.perc);
+                    amplitude_to_db(&mut col);
                     assert_eq!(col.len(), 4097);
                     let scaled = min_max_scale(&col);
                     let input: Tensor = tract_ndarray::Array1::from_vec(scaled).into();
@@ -121,6 +149,20 @@ fn main() -> Result<(), Box<dyn Error>> {
                     if f >= args.frames {
                         break;
                     }
+                }
+            }
+        }
+        Commands::ImgGen(args) => {
+            let mut reader = hound::WavReader::open(args.input).unwrap();
+            let mut stft = Stft::new(N_FFT, HOP_LENGTH);
+            let samples = reader.samples::<i32>();
+            for s in samples {
+                let sample = s.unwrap();
+                if let Some(mut col) = stft.process_samples(&[sample as f64]) {
+                    Stft::hpss_one(&mut col, &stft.harm, &stft.perc);
+                    amplitude_to_db(&mut col);
+                    assert_eq!(col.len(), 4097);
+                    let scaled = min_max_scale(&col);
                 }
             }
         }
