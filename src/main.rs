@@ -146,7 +146,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let mlp = mlp.into_runnable()?;
 
             let resnet = tract_onnx::onnx().model_for_path(args.resnet)?;
-            let resnet = resnet.with_input_fact(0, f32::fact([1, 3, 224, 224]).into())?;
+            let resnet = resnet.with_input_fact(0, f32::fact([1, 224, 224, 3]).into())?;
             let resnet = resnet.into_optimized()?;
             let resnet = resnet.into_runnable()?;
 
@@ -181,8 +181,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                             //let end = start + 224;
 
                             tract_ndarray::Array4::from_shape_fn(
-                                (1, 3, 224, 224),
-                                |(_, _, y, x)| buffer.get(x).unwrap()[y + start],
+                                (1, 224, 224, 3),
+                                |(_, y, x, _)| buffer.get(x).unwrap()[y + start],
                             )
                             .into()
                         };
