@@ -182,7 +182,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
                             tract_ndarray::Array4::from_shape_fn(
                                 (1, 224, 224, 3),
-                                |(_, y, x, _)| buffer.get(x).unwrap()[y + start],
+                                |(_, x, y, _)| buffer.get(x).unwrap()[y + start],
                             )
                             .into()
                         };
