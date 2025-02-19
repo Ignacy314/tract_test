@@ -55,7 +55,7 @@ impl Stft {
             indata,
             outdata,
             scratch,
-            row_filters: array::from_fn(|_| Filter::new(FILTER_WIDTH / 2)),
+            row_filters: array::from_fn(|_| Filter::new(FILTER_WIDTH)),
             harm: [0f64; ROWS],
             perc: [0f64; ROWS],
         }
@@ -75,11 +75,9 @@ impl Stft {
         let mut out = None;
         while self.contains_enough_to_compute() {
             self.compute_into_outdata();
-            //let mut filtered_row = Vec::new();
 
             let mut filter = Filter::new(FILTER_WIDTH);
             let mut norm_col = Vec::new();
-            //let mut filtered_col = Vec::new();
             self.row_filters
                 .iter_mut()
                 .zip(self.outdata.iter())
@@ -88,8 +86,6 @@ impl Stft {
                     let sn = s.norm();
                     self.harm[i] = filter.consume(sn);
                     self.perc[i] = r.consume(sn);
-                    //filtered_col.push(filter.consume(sn));
-                    //filtered_row.push(r.consume(sn));
                     norm_col.push(sn);
                 });
 
