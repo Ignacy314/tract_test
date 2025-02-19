@@ -55,9 +55,9 @@ struct InferArgs {
     /// Path to the MLP onnx model
     #[arg(short, long)]
     mlp: String,
-    /// Path to the ResNet onnx model
-    #[arg(short, long)]
-    resnet: String,
+    // Path to the ResNet onnx model
+    //#[arg(short, long)]
+    //resnet: String,
 }
 
 #[derive(clap::Args)]
@@ -145,10 +145,10 @@ fn main() -> Result<(), Box<dyn Error>> {
             let mlp = mlp.into_optimized()?;
             let mlp = mlp.into_runnable()?;
 
-            let resnet = tract_onnx::onnx().model_for_path(args.resnet)?;
-            let resnet = resnet.with_input_fact(0, f64::fact([1, 224, 224, 3]).into())?;
-            let resnet = resnet.into_optimized()?;
-            let resnet = resnet.into_runnable()?;
+            //let resnet = tract_onnx::onnx().model_for_path(args.resnet)?;
+            //let resnet = resnet.with_input_fact(0, f64::fact([1, 224, 224, 3]).into())?;
+            //let resnet = resnet.into_optimized()?;
+            //let resnet = resnet.into_runnable()?;
 
             let mut buffer = CircularBuffer::<224, [f32; 4097]>::new();
 
@@ -175,30 +175,30 @@ fn main() -> Result<(), Box<dyn Error>> {
                     buffer.push_back(image_col);
 
                     if buffer.is_full() {
-                        let resnet_input: Tensor = {
-                            // TODO: start should be random from 0 to 1400
-                            let start = 200;
-                            //let end = start + 224;
-
-                            tract_ndarray::Array4::from_shape_fn(
-                                (1, 3, 224, 224),
-                                |(_, _, y, x)| buffer.get(x).unwrap()[y + start],
-                            )
-                            .into()
-                        };
-                        let resnet_result = resnet.run(tvec!(resnet_input.into()))?;
+                        //let resnet_input: Tensor = {
+                        //    // TODO: start should be random from 0 to 1400
+                        //    let start = 200;
+                        //    //let end = start + 224;
+                        //
+                        //    tract_ndarray::Array4::from_shape_fn(
+                        //        (1, 3, 224, 224),
+                        //        |(_, _, y, x)| buffer.get(x).unwrap()[y + start],
+                        //    )
+                        //    .into()
+                        //};
+                        //let resnet_result = resnet.run(tvec!(resnet_input.into()))?;
 
                         let mlp_input: Tensor = tract_ndarray::Array1::from_vec(scaled).into();
                         let mlp_result = mlp.run(tvec!(mlp_input.into()))?;
 
                         println!(
-                            "{f:6}: {:2} | {}",
+                            "{f:6}: {:2}",
                             mlp_result[0]
                                 .to_array_view::<TDim>()
                                 .unwrap()
                                 .get(0)
                                 .unwrap(),
-                            resnet_result[0].to_array_view::<f32>().unwrap()
+                            //resnet_result[0].to_array_view::<f32>().unwrap()
                         );
                     }
 
