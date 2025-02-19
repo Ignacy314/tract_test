@@ -4,7 +4,6 @@ use std::io::BufWriter;
 use std::io::Write;
 
 use clap::{Parser, Subcommand};
-use image::Luma;
 use tract_onnx::prelude::*;
 
 use self::spectrogram::{Stft, HOP_LENGTH, N_FFT};
