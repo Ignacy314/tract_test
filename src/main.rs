@@ -4,6 +4,8 @@ use std::io::BufWriter;
 use std::io::Write;
 
 use clap::{Parser, Subcommand};
+use indicatif::ProgressBar;
+use indicatif::ProgressStyle;
 use tract_onnx::prelude::*;
 
 use self::spectrogram::{Stft, HOP_LENGTH, N_FFT};
@@ -103,9 +105,18 @@ fn main() -> Result<(), Box<dyn Error>> {
         Commands::Generate(args) => {
             let mut reader = hound::WavReader::open(args.input).unwrap();
             let mut w = BufWriter::new(File::create(args.output)?);
+            let width = reader.duration() / 4096;
             // TODO: header?
             // writeln!(w, "")?;
-
+            let pb = ProgressBar::new(u64::from(width));
+            let t = f64::from(width).log10().ceil() as u64;
+            pb.set_style(
+                ProgressStyle::with_template(&format!(
+                "[{{elapsed_precise}}] {{bar:40.cyan/blue}} {{pos:>{t}}}/{{len:{t}}} ({{percent}}%) {{msg}}"
+            ))
+                .unwrap()
+                .progress_chars("##-"),
+            );
             let mut stft = Stft::new(N_FFT, HOP_LENGTH);
             let samples = reader.samples::<i32>();
             for s in samples {
@@ -119,8 +130,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                         write!(w, "{s},")?;
                     }
                     writeln!(w, "{}", scaled[4096])?;
+                    pb.inc(1);
                 }
             }
+            pb.finish();
         }
         Commands::Infer(args) => {
             let model = tract_onnx::onnx().model_for_path(args.model)?;
@@ -159,6 +172,15 @@ fn main() -> Result<(), Box<dyn Error>> {
             let mut reader = hound::WavReader::open(args.input).unwrap();
             const HEIGHT: u32 = 4097;
             let width = reader.duration() / 4096;
+            let pb = ProgressBar::new(u64::from(width));
+            let t = f64::from(width).log10().ceil() as u64;
+            pb.set_style(
+                ProgressStyle::with_template(&format!(
+                "[{{elapsed_precise}}] {{bar:40.cyan/blue}} {{pos:>{t}}}/{{len:{t}}} ({{percent}}%) {{msg}}"
+            ))
+                .unwrap()
+                .progress_chars("##-"),
+            );
             let mut image = image::GrayImage::new(width, HEIGHT);
             let mut x: u32 = 0;
 
@@ -179,10 +201,12 @@ fn main() -> Result<(), Box<dyn Error>> {
                         image.get_pixel_mut(x, y as u32).0 = [((s * 255.0).round() as u8)];
                     }
                     x += 1;
+                    pb.inc(1);
                     assert!(x < width, "Generated more STFT frames than expected");
                 }
             }
             image.save(args.output)?;
+            pb.finish();
         }
     }
     Ok(())
