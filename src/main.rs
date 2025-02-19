@@ -3,6 +3,7 @@ use std::fs::File;
 use std::io::BufWriter;
 use std::io::Write;
 
+use circular_buffer::CircularBuffer;
 use clap::{Parser, Subcommand};
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
@@ -51,9 +52,12 @@ struct InferArgs {
     /// Number of frames to process
     #[arg(short, long)]
     frames: usize,
-    /// Path to the onnx model
+    /// Path to the MLP onnx model
     #[arg(short, long)]
-    model: String,
+    mlp: String,
+    /// Path to the ResNet onnx model
+    #[arg(short, long)]
+    resnet: String,
 }
 
 #[derive(clap::Args)]
@@ -136,10 +140,17 @@ fn main() -> Result<(), Box<dyn Error>> {
             pb.finish();
         }
         Commands::Infer(args) => {
-            let model = tract_onnx::onnx().model_for_path(args.model)?;
-            let model = model.with_input_fact(0, f64::fact([4097]).into())?;
-            let model = model.into_optimized()?;
-            let model = model.into_runnable()?;
+            let mlp = tract_onnx::onnx().model_for_path(args.mlp)?;
+            let mlp = mlp.with_input_fact(0, f64::fact([4097]).into())?;
+            let mlp = mlp.into_optimized()?;
+            let mlp = mlp.into_runnable()?;
+
+            let resnet = tract_onnx::onnx().model_for_path(args.resnet)?;
+            let resnet = resnet.with_input_fact(0, f64::fact([1, 224, 224, 3]).into())?;
+            let resnet = resnet.into_optimized()?;
+            let resnet = resnet.into_runnable()?;
+
+            let mut buffer = CircularBuffer::<224, [f32; 4097]>::new();
 
             let mut reader = hound::WavReader::open(args.input).unwrap();
             reader.seek(args.start_sample).unwrap();
@@ -150,18 +161,47 @@ fn main() -> Result<(), Box<dyn Error>> {
             for s in samples {
                 let sample = s.unwrap();
                 if let Some(mut col) = stft.process_samples(&[sample as f64]) {
+                    f += 1;
+
                     Stft::hpss_one(&mut col, &stft.harm, &stft.perc);
                     amplitude_to_db(&mut col);
                     assert_eq!(col.len(), 4097);
                     let scaled = min_max_scale(&col);
-                    let input: Tensor = tract_ndarray::Array1::from_vec(scaled).into();
-                    let result = model.run(tvec!(input.into()))?;
-                    println!(
-                        "{f:6}: {}",
-                        result[0].to_array_view::<TDim>().unwrap().get(0).unwrap()
-                    );
 
-                    f += 1;
+                    let mut image_col = [0f32; 4097];
+                    for (i, s) in scaled.iter().enumerate() {
+                        image_col[i] = *s as f32;
+                    }
+                    buffer.push_back(image_col);
+
+                    if buffer.is_full() {
+                        let resnet_input: Tensor = {
+                            // TODO: start should be random from 0 to 1400
+                            let start = 200;
+                            //let end = start + 224;
+
+                            tract_ndarray::Array4::from_shape_fn(
+                                (1, 3, 224, 224),
+                                |(_, _, y, x)| buffer.get(x).unwrap()[y + start],
+                            )
+                            .into()
+                        };
+                        let resnet_result = resnet.run(tvec!(resnet_input.into()))?;
+
+                        let mlp_input: Tensor = tract_ndarray::Array1::from_vec(scaled).into();
+                        let mlp_result = mlp.run(tvec!(mlp_input.into()))?;
+
+                        println!(
+                            "{f:6}: {:2} | {}",
+                            mlp_result[0]
+                                .to_array_view::<TDim>()
+                                .unwrap()
+                                .get(0)
+                                .unwrap(),
+                            resnet_result[0].to_array_view::<f32>().unwrap()
+                        );
+                    }
+
                     if f >= args.frames {
                         break;
                     }

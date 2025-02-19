@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+circular-buffer = "1.0.0"
 clap = { version = "4.5.29", features = ["derive"] }
 hound = "3.5.1"
 image = "0.25.5"
