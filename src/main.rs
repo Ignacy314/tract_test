@@ -2,6 +2,7 @@ use std::error::Error;
 use std::fs::File;
 use std::io::BufWriter;
 use std::io::Write;
+use std::time::Instant;
 
 use circular_buffer::CircularBuffer;
 use clap::{Parser, Subcommand};
@@ -186,19 +187,22 @@ fn main() -> Result<(), Box<dyn Error>> {
                             )
                             .into()
                         };
+                        let start = Instant::now();
                         let resnet_result = resnet.run(tvec!(resnet_input.into()))?;
+                        let elapsed = start.elapsed();
 
                         let mlp_input: Tensor = tract_ndarray::Array1::from_vec(scaled).into();
                         let mlp_result = mlp.run(tvec!(mlp_input.into()))?;
 
                         println!(
-                            "{f:6}: {:2} | {}",
+                            "{f:6}: {:2} | {} | {}",
                             mlp_result[0]
                                 .to_array_view::<TDim>()
                                 .unwrap()
                                 .get(0)
                                 .unwrap(),
-                            resnet_result[0].to_array_view::<f32>().unwrap()
+                            resnet_result[0].to_array_view::<f32>().unwrap(),
+                            elapsed.as_millis()
                         );
                     }
 
