@@ -55,7 +55,7 @@ impl Stft {
             indata,
             outdata,
             scratch,
-            row_filters: array::from_fn(|_| Filter::new(FILTER_WIDTH)),
+            row_filters: array::from_fn(|_| Filter::new(FILTER_WIDTH / 2)),
             harm: [0f64; ROWS],
             perc: [0f64; ROWS],
         }
