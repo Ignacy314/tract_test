@@ -156,10 +156,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                     let scaled = min_max_scale(&col);
                     let input: Tensor = tract_ndarray::Array1::from_vec(scaled).into();
                     let result = model.run(tvec!(input.into()))?;
-                    //println!("{f}: result: {:?}", result[0].to_array_view::<TDim>());
-                    let res = result[0].to_array_view::<TDim>().unwrap();
-                    let res2 = res.get(0).unwrap();
-                    println!("{f:6}: {}", res2);
+                    println!(
+                        "{f:6}: {}",
+                        result[0].to_array_view::<TDim>().unwrap().get(0).unwrap()
+                    );
 
                     f += 1;
                     if f >= args.frames {
@@ -189,7 +189,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             for s in samples {
                 let sample = s.unwrap();
                 if let Some(mut col) = stft.process_samples(&[sample as f64]) {
-                    //Stft::hpss_one(&mut col, &stft.harm, &stft.perc);
+                    Stft::hpss_one(&mut col, &stft.harm, &stft.perc);
                     amplitude_to_db(&mut col);
                     assert_eq!(
                         col.len(),
