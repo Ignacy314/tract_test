@@ -185,7 +185,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                         let resnet_input: Tensor = {
                             tract_ndarray::Array4::from_shape_fn(
                                 (1, 224, 224, 3),
-                                |(_, y, x, _)| buffer.get(x).unwrap()[y + start_row],
+                                |(_, x, y, _)| buffer.get(x).unwrap()[y + start_row],
                             )
                             .into()
                         };
