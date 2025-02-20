@@ -180,12 +180,11 @@ fn main() -> Result<(), Box<dyn Error>> {
                     buffer.push_back(image_col);
 
                     if buffer.is_full() {
+                        let start_row = rng.random_range(0..1400);
                         let resnet_input: Tensor = {
-                            let start = rng.random_range(0..1400);
-
                             tract_ndarray::Array4::from_shape_fn(
                                 (1, 224, 224, 3),
-                                |(_, y, x, _)| buffer.get(x).unwrap()[y + start],
+                                |(_, y, x, _)| buffer.get(x).unwrap()[y + start_row],
                             )
                             .into()
                         };
@@ -197,7 +196,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                         let mlp_result = mlp.run(tvec!(mlp_input.into()))?;
 
                         println!(
-                            "{f:6}: {:2} | {} | {}",
+                            "{f:6}: {:2} | {} | {} | {start_row}",
                             mlp_result[0]
                                 .to_array_view::<TDim>()
                                 .unwrap()
