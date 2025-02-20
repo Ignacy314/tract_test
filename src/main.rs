@@ -8,6 +8,8 @@ use circular_buffer::CircularBuffer;
 use clap::{Parser, Subcommand};
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
+use rand::rng;
+use rand::Rng;
 use tract_onnx::prelude::*;
 
 use self::spectrogram::{Stft, HOP_LENGTH, N_FFT};
@@ -151,6 +153,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             let resnet = resnet.into_optimized()?;
             let resnet = resnet.into_runnable()?;
 
+            let mut rng = rng();
+
             let mut buffer = CircularBuffer::<224, [f32; 4097]>::new();
 
             let mut reader = hound::WavReader::open(args.input).unwrap();
@@ -177,13 +181,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
                     if buffer.is_full() {
                         let resnet_input: Tensor = {
-                            // TODO: start should be random from 0 to 1400
-                            let start = 200;
-                            //let end = start + 224;
+                            let start = rng.random_range(0..1400);
 
                             tract_ndarray::Array4::from_shape_fn(
                                 (1, 224, 224, 3),
-                                |(_, x, y, _)| buffer.get(x).unwrap()[y + start],
+                                |(_, y, x, _)| buffer.get(x).unwrap()[y + start],
                             )
                             .into()
                         };
