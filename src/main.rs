@@ -196,14 +196,22 @@ fn main() -> Result<(), Box<dyn Error>> {
                         let mlp_input: Tensor = tract_ndarray::Array1::from_vec(scaled).into();
                         let mlp_result = mlp.run(tvec!(mlp_input.into()))?;
 
+                        let resnet_val = &resnet_result[0].to_array_view::<f32>().unwrap();
+                        let resnet_best = resnet_val
+                            .iter()
+                            .zip(0..)
+                            .max_by(|a, b| a.0.total_cmp(b.0))
+                            .unwrap();
+
                         println!(
-                            "{f:6}: {:2} | {} | {} | {start_row}",
+                            "{f:6}: {:2} | {} | {} | {} | {start_row}",
                             mlp_result[0]
                                 .to_array_view::<TDim>()
                                 .unwrap()
                                 .get(0)
                                 .unwrap(),
-                            resnet_result[0].to_array_view::<f32>().unwrap(),
+                            resnet_best.1,
+                            resnet_best.0,
                             elapsed.as_millis()
                         );
                     }
