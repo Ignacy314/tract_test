@@ -110,7 +110,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     match cli.command {
         Commands::Generate(args) => {
-            let mut reader = hound::WavReader::open(args.input).unwrap();
+            let mut reader = hound::WavReader::open(args.input)?;
             let mut w = BufWriter::new(File::create(args.output)?);
             let width = reader.duration() / 4096;
             // TODO: header?
