@@ -204,7 +204,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                             .unwrap();
 
                         println!(
-                            "{f:6}: {:2} | {} | {:.3} | {} | {start_row} | {resnet_val:?}",
+                            "{f:6}: {:2} | {} | {:.3} | {:4} | {start_row}",
                             mlp_result[0]
                                 .to_array_view::<TDim>()
                                 .unwrap()
