@@ -113,8 +113,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let mut reader = hound::WavReader::open(args.input)?;
             let mut w = BufWriter::new(File::create(args.output)?);
             let width = reader.duration() / 4096;
-            // TODO: header?
-            // writeln!(w, "")?;
+
             let pb = ProgressBar::new(u64::from(width));
             let t = f64::from(width).log10().ceil() as u64;
             pb.set_style(
@@ -124,6 +123,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .unwrap()
                 .progress_chars("##-"),
             );
+
             let mut stft = Stft::new(N_FFT, HOP_LENGTH);
             let samples = reader.samples::<i32>();
             for s in samples {
@@ -181,7 +181,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 
                     if buffer.is_full() {
                         let start_row = rng.random_range(1800..2500);
-                        //let start_row = 1600;
                         let resnet_input: Tensor = {
                             tract_ndarray::Array4::from_shape_fn(
                                 (1, 224, 224, 3),
