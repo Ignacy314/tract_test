@@ -180,7 +180,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                     buffer.push_back(image_col);
 
                     if buffer.is_full() {
-                        let start_row = rng.random_range(0..1400);
+                        //let start_row = rng.random_range(0..1400);
+                        let start_row = 1200;
                         let resnet_input: Tensor = {
                             tract_ndarray::Array4::from_shape_fn(
                                 (1, 224, 224, 3),
