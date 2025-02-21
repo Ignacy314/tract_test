@@ -32,6 +32,8 @@ enum Commands {
     Infer(InferArgs),
     /// Generate images for resnet
     ImgGen(ImgGenArgs),
+    /// Test MLP accuracy
+    TestMlp(TestMlpArgs),
 }
 
 #[derive(clap::Args)]
@@ -71,6 +73,19 @@ struct ImgGenArgs {
     /// Path to output file
     #[arg(short, long)]
     output: String,
+}
+
+#[derive(clap::Args)]
+struct TestMlpArgs {
+    /// Path to input wav file
+    #[arg(short, long)]
+    input: String,
+    /// Path to the MLP onnx model
+    #[arg(short, long)]
+    mlp: String,
+    /// Path to the drone distance class csv corresponding to the wav file
+    #[arg(short, long)]
+    drone_csv: String,
 }
 
 fn amplitude_to_db(x_vec: &mut [f64]) {
@@ -260,6 +275,62 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
             image.save(args.output)?;
             pb.finish();
+        }
+        Commands::TestMlp(args) => {
+            let mlp = tract_onnx::onnx().model_for_path(args.mlp)?;
+            let mlp = mlp.with_input_fact(0, f64::fact([4097]).into())?;
+            let mlp = mlp.into_optimized()?;
+            let mlp = mlp.into_runnable()?;
+
+            let mut reader = hound::WavReader::open(args.input).unwrap();
+
+            let mut csv = csv::Reader::from_path(args.drone_csv)?;
+
+            let n = reader.duration() / 4096;
+            let pb = ProgressBar::new(u64::from(n));
+            let t = f64::from(n).log10().ceil() as u64;
+            pb.set_style(
+                ProgressStyle::with_template(&format!(
+                "[{{elapsed_precise}}] {{bar:40.cyan/blue}} {{pos:>{t}}}/{{len:{t}}} ({{percent}}%) {{msg}}"
+            ))
+                .unwrap()
+                .progress_chars("##-"),
+            );
+            let mut sum_diff = 0i64;
+            let mut count_ok = 0u32;
+
+            let mut stft = Stft::new(N_FFT, HOP_LENGTH);
+            let samples = reader.samples::<i32>();
+            for (s, csv_result) in samples.zip(csv.deserialize()) {
+                let sample = s.unwrap();
+                if let Some(mut col) = stft.process_samples(&[sample as f64]) {
+                    Stft::hpss_one(&mut col, &stft.harm, &stft.perc);
+                    amplitude_to_db(&mut col);
+                    assert_eq!(col.len(), 4097);
+                    let scaled = min_max_scale(&col);
+
+                    let mlp_input: Tensor = tract_ndarray::Array1::from_vec(scaled).into();
+                    let mlp_result = mlp.run(tvec!(mlp_input.into()))?;
+                    let mlp_class = mlp_result[0]
+                        .to_array_view::<TDim>()
+                        .unwrap()
+                        .get(0)
+                        .unwrap().to_i64().unwrap();
+
+                    let record: i64 = csv_result?;
+
+                    let diff = (mlp_class - record).abs();
+                    if diff == 0 {
+                        count_ok += 1;
+                    }
+                    sum_diff += diff;
+
+                    pb.inc(1);
+                }
+            }
+            let acc = count_ok as f32 / n as f32;
+            let avg_diff = sum_diff as f32 / n as f32;
+            pb.finish_with_message(format!("Acc: {acc} | Avg diff: {avg_diff}"));
         }
     }
     Ok(())
