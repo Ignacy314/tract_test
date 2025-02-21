@@ -286,7 +286,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             let mut reader = hound::WavReader::open(args.input).unwrap();
 
             let mut csv = csv::Reader::from_path(args.drone_csv)?;
-            let mut csv = csv.deserialize().skip((FILTER_WIDTH + 1) / 2);
+            let mut csv = csv.deserialize();
+            //let mut csv = csv.deserialize().skip((FILTER_WIDTH + 1) / 2);
 
             let n = (reader.duration() - 4096) / 4096 - 1;
             let pb = ProgressBar::new(u64::from(n));
