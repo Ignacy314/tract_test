@@ -13,7 +13,6 @@ use rand::Rng;
 use tract_onnx::prelude::*;
 
 use self::spectrogram::{Stft, HOP_LENGTH, N_FFT};
-use self::tract_itertools::Itertools;
 
 mod spectrogram;
 
@@ -145,7 +144,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             for s in samples {
                 let sample = s.unwrap();
                 if let Some(mut col) = stft.process_samples(&[sample as f64]) {
-                    Stft::hpss_one(&mut col, &stft.harm, &stft.perc);
+                    stft.hpss_one(&mut col, &stft.harm, &stft.perc);
                     amplitude_to_db(&mut col);
                     assert_eq!(col.len(), 4097);
                     let scaled = min_max_scale(&col);
@@ -184,7 +183,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 if let Some(mut col) = stft.process_samples(&[sample as f64]) {
                     f += 1;
 
-                    Stft::hpss_one(&mut col, &stft.harm, &stft.perc);
+                    stft.hpss_one(&mut col, &stft.harm, &stft.perc);
                     amplitude_to_db(&mut col);
                     assert_eq!(col.len(), 4097);
                     let scaled = min_max_scale(&col);
@@ -258,7 +257,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             for s in samples {
                 let sample = s.unwrap();
                 if let Some(mut col) = stft.process_samples(&[sample as f64]) {
-                    Stft::hpss_one(&mut col, &stft.harm, &stft.perc);
+                    stft.hpss_one(&mut col, &stft.harm, &stft.perc);
                     amplitude_to_db(&mut col);
                     assert_eq!(
                         col.len(),
@@ -308,7 +307,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 let sample = s.unwrap();
                 if let Some(mut col) = stft.process_samples(&[sample as f64]) {
                     let csv_result = csv.next().unwrap();
-                    Stft::hpss_one(&mut col, &stft.harm, &stft.perc);
+                    stft.hpss_one(&mut col, &stft.harm, &stft.perc);
                     amplitude_to_db(&mut col);
                     assert_eq!(col.len(), 4097);
                     let scaled = min_max_scale(&col);
