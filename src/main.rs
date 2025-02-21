@@ -12,7 +12,7 @@ use rand::rng;
 use rand::Rng;
 use tract_onnx::prelude::*;
 
-use self::spectrogram::FILTER_WIDTH;
+//use self::spectrogram::FILTER_WIDTH;
 use self::spectrogram::{Stft, HOP_LENGTH, N_FFT};
 
 mod spectrogram;

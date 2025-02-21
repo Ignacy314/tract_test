@@ -2,7 +2,6 @@ use std::array;
 use std::f64::consts::PI;
 use std::sync::Arc;
 
-//use circular_buffer::CircularBuffer;
 use median::Filter;
 use realfft::num_complex::Complex;
 use realfft::{RealFftPlanner, RealToComplex};
@@ -10,8 +9,8 @@ use strider::{SliceRing, SliceRingImpl};
 
 pub const N_FFT: usize = 8192;
 pub const HOP_LENGTH: usize = 4096;
-pub const FILTER_WIDTH: usize = 31;
-//const COLS: usize = (FILTER_WIDTH + 1) / 2;
+const FILTER_WIDTH: usize = 31;
+//const COLS: usize = FILTER_WIDTH;
 const ROWS: usize = N_FFT / 2 + 1;
 
 fn new_hann_window(size: usize) -> Vec<f64> {
@@ -36,11 +35,8 @@ pub struct Stft {
     outdata: Vec<Complex<f64>>,
     scratch: Vec<Complex<f64>>,
     row_filters: [Filter<f64>; ROWS],
-    //cols: CircularBuffer<COLS, ([f64; ROWS], [f64; ROWS])>,
     pub harm: [f64; ROWS],
     pub perc: [f64; ROWS],
-    norm: [f64; ROWS],
-    //ready_counter: usize,
 }
 
 impl Stft {
@@ -60,11 +56,8 @@ impl Stft {
             outdata,
             scratch,
             row_filters: array::from_fn(|_| Filter::new(FILTER_WIDTH)),
-            //cols: CircularBuffer::new(),
             harm: [0f64; ROWS],
             perc: [0f64; ROWS],
-            norm: [0f64; ROWS],
-            //ready_counter: 0,
         }
     }
 
@@ -76,7 +69,7 @@ impl Stft {
     /// computes it, then computes the median filtered harmonic and the newest elements of the
     /// median filtered percussives. Returns the newest median filtered harmonic column vector and a vector
     /// consisting of the newest element of the median filtered percussives
-    pub fn process_samples(&mut self, samples: &[f64]) -> Option<[f64; ROWS]> {
+    pub fn process_samples(&mut self, samples: &[f64]) -> Option<Vec<f64>> {
         self.sample_ring.push_many_back(samples);
 
         let mut out = None;
@@ -84,7 +77,7 @@ impl Stft {
             self.compute_into_outdata();
 
             let mut filter = Filter::new(FILTER_WIDTH);
-            //let mut norm_col = Vec::new();
+            let mut norm_col = Vec::new();
             self.row_filters
                 .iter_mut()
                 .zip(self.outdata.iter())
@@ -93,19 +86,10 @@ impl Stft {
                     let sn = s.norm();
                     self.perc[i] = filter.consume(sn);
                     self.harm[i] = r.consume(sn);
-                    self.norm[i] = sn;
-                    //norm_col.push(sn);
+                    norm_col.push(sn);
                 });
-            //if self.ready_counter >= FILTER_WIDTH {
-            //    if let Some((perc, norm)) = self.cols.push_back((self.perc, self.norm)) {
-            //        self.perc = perc;
-            //        out = Some(norm);
-            //    }
-            //} else {
-            //    self.ready_counter += 1;
-            //}
 
-            out = Some(self.norm);
+            out = Some(norm_col);
             self.sample_ring.drop_many_front(self.hop_length);
         }
         out
@@ -128,15 +112,11 @@ impl Stft {
 
     /// Computes hpss for one column of median filtered harmonics, and a vector of the last
     /// elements of the corresponding median filtered percussives
-    pub fn hpss_one(&self, x_vec: &mut [f64]) {
-        //if self.cols.is_full() {
+    pub fn hpss_one(&self, x: &mut [f64]) {
         let mask = Self::softmask_one(&self.harm, &self.perc);
-        for (x, m) in x_vec.iter_mut().zip(mask) {
-            *x *= m
-        }
-        //return true;
-        //}
-        //false
+        for (h, m) in x.iter_mut().zip(mask) {
+            *h *= m
+        };
     }
 
     /// Computes softmask for the vector x with vector y as reference
