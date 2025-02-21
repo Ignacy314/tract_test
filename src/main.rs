@@ -145,7 +145,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             for s in samples {
                 let sample = s.unwrap();
                 if let Some(mut col) = stft.process_samples(&[sample as f64]) {
-                    stft.hpss_one(&mut col, &stft.harm, &stft.perc);
+                    stft.hpss_one(&mut col);
                     amplitude_to_db(&mut col);
                     assert_eq!(col.len(), 4097);
                     let scaled = min_max_scale(&col);
@@ -184,7 +184,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 if let Some(mut col) = stft.process_samples(&[sample as f64]) {
                     f += 1;
 
-                    stft.hpss_one(&mut col, &stft.harm, &stft.perc);
+                    stft.hpss_one(&mut col);
                     amplitude_to_db(&mut col);
                     assert_eq!(col.len(), 4097);
                     let scaled = min_max_scale(&col);
@@ -258,7 +258,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             for s in samples {
                 let sample = s.unwrap();
                 if let Some(mut col) = stft.process_samples(&[sample as f64]) {
-                    stft.hpss_one(&mut col, &stft.harm, &stft.perc);
+                    stft.hpss_one(&mut col);
                     amplitude_to_db(&mut col);
                     assert_eq!(
                         col.len(),
@@ -307,7 +307,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 let sample = s.unwrap();
                 if let Some(mut col) = stft.process_samples(&[sample as f64]) {
                     let csv_result = csv.next().unwrap();
-                    stft.hpss_one(&mut col, &stft.harm, &stft.perc);
+                    stft.hpss_one(&mut col);
                     amplitude_to_db(&mut col);
                     assert_eq!(col.len(), 4097);
                     let scaled = min_max_scale(&col);

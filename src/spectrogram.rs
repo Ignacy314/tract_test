@@ -11,7 +11,7 @@ use strider::{SliceRing, SliceRingImpl};
 pub const N_FFT: usize = 8192;
 pub const HOP_LENGTH: usize = 4096;
 pub const FILTER_WIDTH: usize = 31;
-const COLS: usize = FILTER_WIDTH;
+const COLS: usize = (FILTER_WIDTH + 1) / 2;
 const ROWS: usize = N_FFT / 2 + 1;
 
 fn new_hann_window(size: usize) -> Vec<f64> {
@@ -40,6 +40,7 @@ pub struct Stft {
     pub harm: [f64; ROWS],
     pub perc: [f64; ROWS],
     norm: [f64; ROWS],
+    ready_counter: usize,
 }
 
 impl Stft {
@@ -63,6 +64,7 @@ impl Stft {
             harm: [0f64; ROWS],
             perc: [0f64; ROWS],
             norm: [0f64; ROWS],
+            ready_counter: 0,
         }
     }
 
@@ -94,11 +96,10 @@ impl Stft {
                     self.norm[i] = sn;
                     //norm_col.push(sn);
                 });
-            let old_cols = self.cols.push_back((self.perc, self.norm));
-            if old_cols.is_some() {
-                if let Some((perc, norm)) = self.cols.get((FILTER_WIDTH + 1) / 2 - 1) {
-                    self.perc = *perc;
-                    out = Some(*norm);
+            if self.ready_counter >= FILTER_WIDTH {
+                if let Some((perc, norm)) = self.cols.push_back((self.perc, self.norm)) {
+                    self.perc = perc;
+                    out = Some(norm);
                 }
             }
 
@@ -125,11 +126,11 @@ impl Stft {
 
     /// Computes hpss for one column of median filtered harmonics, and a vector of the last
     /// elements of the corresponding median filtered percussives
-    pub fn hpss_one(&self, x: &mut [f64], harm: &[f64], perc: &[f64]) {
+    pub fn hpss_one(&self, x_vec: &mut [f64]) {
         //if self.cols.is_full() {
-        let mask = Self::softmask_one(harm, perc);
-        for (h, m) in x.iter_mut().zip(mask) {
-            *h *= m
+        let mask = Self::softmask_one(&self.harm, &self.perc);
+        for (x, m) in x_vec.iter_mut().zip(mask) {
+            *x *= m
         }
         //return true;
         //}
