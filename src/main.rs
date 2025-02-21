@@ -239,7 +239,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         Commands::ImgGen(args) => {
             let mut reader = hound::WavReader::open(args.input).unwrap();
             const HEIGHT: u32 = 4097;
-            let width = reader.duration() / 4096;
+            let width = (reader.duration() - 4096) / 4096;
             let pb = ProgressBar::new(u64::from(width));
             let t = f64::from(width).log10().ceil() as u64;
             pb.set_style(
@@ -286,7 +286,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             let mut csv = csv::Reader::from_path(args.drone_csv)?;
 
-            let n = reader.duration() / 4096;
+            let n = (reader.duration() - 4096) / 4096;
             let pb = ProgressBar::new(u64::from(n));
             let t = f64::from(n).log10().ceil() as u64;
             pb.set_style(
@@ -299,11 +299,14 @@ fn main() -> Result<(), Box<dyn Error>> {
             let mut sum_diff = 0i64;
             let mut count_ok = 0u32;
 
+            let mut csv = csv.deserialize();
+
             let mut stft = Stft::new(N_FFT, HOP_LENGTH);
             let samples = reader.samples::<i32>();
-            for (s, csv_result) in samples.zip(csv.deserialize()) {
+            for s in samples {
                 let sample = s.unwrap();
                 if let Some(mut col) = stft.process_samples(&[sample as f64]) {
+                    let csv_result = csv.next().unwrap();
                     Stft::hpss_one(&mut col, &stft.harm, &stft.perc);
                     amplitude_to_db(&mut col);
                     assert_eq!(col.len(), 4097);
@@ -315,7 +318,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                         .to_array_view::<TDim>()
                         .unwrap()
                         .get(0)
-                        .unwrap().to_i64().unwrap();
+                        .unwrap()
+                        .to_i64()
+                        .unwrap();
 
                     let record: i64 = csv_result?;
 
