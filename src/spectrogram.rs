@@ -101,6 +101,8 @@ impl Stft {
                     self.perc = perc;
                     out = Some(norm);
                 }
+            } else {
+                self.ready_counter += 1;
             }
 
             //out = Some(norm_col);
