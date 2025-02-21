@@ -288,7 +288,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let mut csv = csv::Reader::from_path(args.drone_csv)?;
             let mut csv = csv.deserialize();
 
-            let n = csv.try_len().unwrap() as u32;
+            let n = (reader.duration() - 4096) / 4096 - 1;
             let pb = ProgressBar::new(u64::from(n));
             let t = f64::from(n).log10().ceil() as u64;
             pb.set_style(
