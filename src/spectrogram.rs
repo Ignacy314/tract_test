@@ -36,10 +36,10 @@ pub struct Stft {
     outdata: Vec<Complex<f64>>,
     scratch: Vec<Complex<f64>>,
     row_filters: [Filter<f64>; ROWS],
-    cols: CircularBuffer<COLS, ([f64; ROWS], [f64; ROWS])>,
+    cols: CircularBuffer<COLS, ([f64; ROWS], Vec<f64>)>,
     pub harm: [f64; ROWS],
     pub perc: [f64; ROWS],
-    norm: [f64; ROWS],
+    //norm: [f64; ROWS],
     ready_counter: usize,
 }
 
@@ -63,7 +63,7 @@ impl Stft {
             cols: CircularBuffer::new(),
             harm: [0f64; ROWS],
             perc: [0f64; ROWS],
-            norm: [0f64; ROWS],
+            //norm: [0f64; ROWS],
             ready_counter: 0,
         }
     }
@@ -76,7 +76,7 @@ impl Stft {
     /// computes it, then computes the median filtered harmonic and the newest elements of the
     /// median filtered percussives. Returns the newest median filtered harmonic column vector and a vector
     /// consisting of the newest element of the median filtered percussives
-    pub fn process_samples(&mut self, samples: &[f64]) -> Option<[f64; ROWS]> {
+    pub fn process_samples(&mut self, samples: &[f64]) -> Option<Vec<f64>> {
         self.sample_ring.push_many_back(samples);
 
         let mut out = None;
@@ -84,7 +84,7 @@ impl Stft {
             self.compute_into_outdata();
 
             let mut filter = Filter::new(FILTER_WIDTH);
-            //let mut norm_col = Vec::new();
+            let mut norm = Vec::new();
             self.row_filters
                 .iter_mut()
                 .zip(self.outdata.iter())
@@ -93,11 +93,13 @@ impl Stft {
                     let sn = s.norm();
                     self.perc[i] = filter.consume(sn);
                     self.harm[i] = r.consume(sn);
-                    self.norm[i] = sn;
-                    //norm_col.push(sn);
+                    //self.norm[i] = sn;
+                    norm.push(sn);
                 });
             if self.ready_counter >= FILTER_WIDTH {
-                if let Some((perc, norm)) = self.cols.push_back((self.perc, self.norm)) {
+                if let Some((perc, norm)) =
+                    self.cols.push_back((self.perc, norm))
+                {
                     self.perc = perc;
                     out = Some(norm);
                 }
