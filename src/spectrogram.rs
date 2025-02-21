@@ -10,7 +10,7 @@ use strider::{SliceRing, SliceRingImpl};
 
 pub const N_FFT: usize = 8192;
 pub const HOP_LENGTH: usize = 4096;
-const FILTER_WIDTH: usize = 31;
+pub const FILTER_WIDTH: usize = 31;
 const COLS: usize = FILTER_WIDTH;
 const ROWS: usize = N_FFT / 2 + 1;
 

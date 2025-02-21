@@ -12,6 +12,7 @@ use rand::rng;
 use rand::Rng;
 use tract_onnx::prelude::*;
 
+use self::spectrogram::FILTER_WIDTH;
 use self::spectrogram::{Stft, HOP_LENGTH, N_FFT};
 
 mod spectrogram;
@@ -285,7 +286,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let mut reader = hound::WavReader::open(args.input).unwrap();
 
             let mut csv = csv::Reader::from_path(args.drone_csv)?;
-            let mut csv = csv.deserialize();
+            let mut csv = csv.deserialize().skip((FILTER_WIDTH + 1) / 2);
 
             let n = (reader.duration() - 4096) / 4096 - 1;
             let pb = ProgressBar::new(u64::from(n));
@@ -299,7 +300,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             );
             let mut sum_diff = 0i64;
             let mut count_ok = 0u32;
-
 
             let mut stft = Stft::new(N_FFT, HOP_LENGTH);
             let samples = reader.samples::<i32>();
