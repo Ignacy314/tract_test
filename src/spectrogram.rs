@@ -9,7 +9,7 @@ use strider::{SliceRing, SliceRingImpl};
 
 pub const N_FFT: usize = 8192;
 pub const HOP_LENGTH: usize = 4096;
-const FILTER_WIDTH: usize = 31;
+//const FILTER_WIDTH: usize = 17;
 //const COLS: usize = FILTER_WIDTH;
 const ROWS: usize = N_FFT / 2 + 1;
 
@@ -37,10 +37,11 @@ pub struct Stft {
     row_filters: [Filter<f64>; ROWS],
     pub harm: [f64; ROWS],
     pub perc: [f64; ROWS],
+    filter_width: usize
 }
 
 impl Stft {
-    pub fn new(n_fft: usize, hop_length: usize) -> Self {
+    pub fn new(n_fft: usize, hop_length: usize, filter_width: usize) -> Self {
         let mut planner = RealFftPlanner::new();
         let forward = planner.plan_fft_forward(n_fft);
         let indata = forward.make_input_vec();
@@ -55,9 +56,10 @@ impl Stft {
             indata,
             outdata,
             scratch,
-            row_filters: array::from_fn(|_| Filter::new(FILTER_WIDTH)),
+            row_filters: array::from_fn(|_| Filter::new(filter_width)),
             harm: [0f64; ROWS],
             perc: [0f64; ROWS],
+            filter_width
         }
     }
 
@@ -76,14 +78,14 @@ impl Stft {
         while self.contains_enough_to_compute() {
             self.compute_into_outdata();
 
-            let mut filter = Filter::new(FILTER_WIDTH);
+            let mut filter = Filter::new(self.filter_width);
             let mut norm_col = Vec::new();
             self.row_filters
                 .iter_mut()
                 .zip(self.outdata.iter())
                 .enumerate()
                 .for_each(|(i, (r, &s))| {
-                    let sn = s.norm_sqr();
+                    let sn = s.norm();
                     self.perc[i] = filter.consume(sn);
                     self.harm[i] = r.consume(sn);
                     norm_col.push(sn);
@@ -112,15 +114,15 @@ impl Stft {
 
     /// Computes hpss for one column of median filtered harmonics, and a vector of the last
     /// elements of the corresponding median filtered percussives
-    pub fn hpss_one(&self, x: &mut [f64]) {
-        let mask = Self::softmask_one(&self.harm, &self.perc);
+    pub fn hpss_one(&self, x: &mut [f64], power: i32) {
+        let mask = Self::softmask_one(&self.harm, &self.perc, power);
         for (h, m) in x.iter_mut().zip(mask) {
             *h *= m
-        };
+        }
     }
 
     /// Computes softmask for the vector x with vector y as reference
-    fn softmask_one(x: &[f64], y: &[f64]) -> Vec<f64> {
+    fn softmask_one(x: &[f64], y: &[f64], power: i32) -> Vec<f64> {
         let z = x.iter().zip(y).map(|(x, y)| {
             let maxi = x.max(*y);
             if maxi < f64::MIN_POSITIVE {
@@ -133,10 +135,10 @@ impl Stft {
         let mut mask = x
             .iter()
             .zip(z.clone())
-            .map(|(x, z)| (x / z.0).powi(2))
+            .map(|(x, z)| (x / z.0).powi(power))
             .collect::<Vec<f64>>();
 
-        let ref_mask = y.iter().zip(z.clone()).map(|(y, z)| (y / z.0).powi(2));
+        let ref_mask = y.iter().zip(z.clone()).map(|(y, z)| (y / z.0).powi(power));
 
         for ((m, r), z) in (mask.iter_mut().zip(ref_mask)).zip(z) {
             if z.1 {

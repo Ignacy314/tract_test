@@ -45,6 +45,12 @@ struct GenerateArgs {
     /// Path to input file
     #[arg(short, long)]
     input: String,
+    /// Width of the median filter
+    #[arg(short, long)]
+    width: usize,
+    /// Power of the softmask
+    #[arg(short, long)]
+    power: i32
 }
 
 #[derive(clap::Parser)]
@@ -64,6 +70,12 @@ struct InferArgs {
     /// Path to the ResNet onnx model
     #[arg(short, long)]
     resnet: String,
+    /// Width of the median filter
+    #[arg(short, long)]
+    width: usize,
+    /// Power of the softmask
+    #[arg(short, long)]
+    power: i32
 }
 
 #[derive(clap::Args)]
@@ -74,6 +86,12 @@ struct ImgGenArgs {
     /// Path to output file
     #[arg(short, long)]
     output: String,
+    /// Width of the median filter
+    #[arg(short, long)]
+    width: usize,
+    /// Power of the softmask
+    #[arg(short, long)]
+    power: i32
 }
 
 #[derive(clap::Args)]
@@ -87,6 +105,12 @@ struct TestMlpArgs {
     /// Path to the drone distance class csv corresponding to the wav file
     #[arg(short, long)]
     drone_csv: String,
+    /// Width of the median filter
+    #[arg(short, long)]
+    width: usize,
+    /// Power of the softmask
+    #[arg(short, long)]
+    power: i32
 }
 
 fn amplitude_to_db(x_vec: &mut [f64]) {
@@ -141,14 +165,14 @@ fn main() -> Result<(), Box<dyn Error>> {
             );
 
             let mut i = 0;
-            let mut stft = Stft::new(N_FFT, HOP_LENGTH);
+            let mut stft = Stft::new(N_FFT, HOP_LENGTH, args.width);
             let samples = reader.samples::<i32>();
             for s in samples {
                 let sample = s.unwrap();
                 if let Some(mut col) = stft.process_samples(&[sample as f64]) {
                     i += 1;
                     assert!(i <= width, "Tried to process too many stft frames");
-                    stft.hpss_one(&mut col);
+                    stft.hpss_one(&mut col, args.power);
                     amplitude_to_db(&mut col);
                     assert_eq!(col.len(), 4097);
                     let scaled = min_max_scale(&col);
@@ -179,7 +203,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let mut reader = hound::WavReader::open(args.input).unwrap();
             reader.seek(args.start_sample).unwrap();
 
-            let mut stft = Stft::new(N_FFT, HOP_LENGTH);
+            let mut stft = Stft::new(N_FFT, HOP_LENGTH, args.width);
             let samples = reader.samples::<i32>();
             let mut f = 0;
             for s in samples {
@@ -187,7 +211,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 if let Some(mut col) = stft.process_samples(&[sample as f64]) {
                     f += 1;
 
-                    stft.hpss_one(&mut col);
+                    stft.hpss_one(&mut col, args.power);
                     amplitude_to_db(&mut col);
                     assert_eq!(col.len(), 4097);
                     let scaled = min_max_scale(&col);
@@ -256,12 +280,12 @@ fn main() -> Result<(), Box<dyn Error>> {
             let mut image = image::GrayImage::new(width, HEIGHT);
             let mut x: u32 = 0;
 
-            let mut stft = Stft::new(N_FFT, HOP_LENGTH);
+            let mut stft = Stft::new(N_FFT, HOP_LENGTH, args.width);
             let samples = reader.samples::<i32>();
             for s in samples {
                 let sample = s.unwrap();
                 if let Some(mut col) = stft.process_samples(&[sample as f64]) {
-                    stft.hpss_one(&mut col);
+                    stft.hpss_one(&mut col, args.power);
                     amplitude_to_db(&mut col);
                     assert_eq!(
                         col.len(),
@@ -305,13 +329,13 @@ fn main() -> Result<(), Box<dyn Error>> {
             let mut sum_diff = 0i64;
             let mut count_ok = 0u32;
 
-            let mut stft = Stft::new(N_FFT, HOP_LENGTH);
+            let mut stft = Stft::new(N_FFT, HOP_LENGTH, args.width);
             let samples = reader.samples::<i32>();
             for s in samples {
                 let sample = s.unwrap();
                 if let Some(mut col) = stft.process_samples(&[sample as f64]) {
                     let csv_result = csv.next().unwrap();
-                    stft.hpss_one(&mut col);
+                    stft.hpss_one(&mut col, args.power);
                     amplitude_to_db(&mut col);
                     assert_eq!(col.len(), 4097);
                     let scaled = min_max_scale(&col);
