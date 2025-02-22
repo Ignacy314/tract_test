@@ -128,7 +128,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         Commands::Generate(args) => {
             let mut reader = hound::WavReader::open(args.input)?;
             let mut w = BufWriter::new(File::create(args.output)?);
-            let width = reader.duration() / 4096;
+            let width = (reader.duration() - 4096) / 4096;
 
             let pb = ProgressBar::new(u64::from(width));
             let t = f64::from(width).log10().ceil() as u64;
@@ -140,11 +140,14 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .progress_chars("##-"),
             );
 
+            let mut i = 0;
             let mut stft = Stft::new(N_FFT, HOP_LENGTH);
             let samples = reader.samples::<i32>();
             for s in samples {
                 let sample = s.unwrap();
                 if let Some(mut col) = stft.process_samples(&[sample as f64]) {
+                    i += 1;
+                    assert!(i <= width, "Tried to process too many stft frames");
                     stft.hpss_one(&mut col);
                     amplitude_to_db(&mut col);
                     assert_eq!(col.len(), 4097);
