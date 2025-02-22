@@ -258,7 +258,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             for s in samples {
                 let sample = s.unwrap();
                 if let Some(mut col) = stft.process_samples(&[sample as f64]) {
-                    //stft.hpss_one(&mut col);
+                    stft.hpss_one(&mut col);
                     amplitude_to_db(&mut col);
                     assert_eq!(
                         col.len(),
