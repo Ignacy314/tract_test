@@ -36,7 +36,8 @@ pub struct Stft {
     outdata: Vec<Complex<f64>>,
     scratch: Vec<Complex<f64>>,
     row_filters: [Filter<f64>; ROWS],
-    cols: CircularBuffer<COLS, ([f64; ROWS], Vec<f64>)>,
+    cols: CircularBuffer<COLS, [f64; ROWS]>,
+    //cols: CircularBuffer<COLS, ([f64; ROWS], Vec<f64>)>,
     pub harm: [f64; ROWS],
     pub perc: [f64; ROWS],
     //norm: [f64; ROWS],
@@ -97,8 +98,8 @@ impl Stft {
                     norm.push(sn);
                 });
             if self.ready_counter >= FILTER_WIDTH {
-                if let Some((perc, norm)) =
-                    self.cols.push_back((self.perc, norm))
+                if let Some(perc) =
+                    self.cols.push_back(self.perc)
                 {
                     self.perc = perc;
                     out = Some(norm);
