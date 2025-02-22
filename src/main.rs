@@ -275,7 +275,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
             }
             image.save(args.output)?;
-            pb.finish();
+            pb.finish_with_message(format!("{x}"));
         }
         Commands::TestMlp(args) => {
             let mlp = tract_onnx::onnx().model_for_path(args.mlp)?;
