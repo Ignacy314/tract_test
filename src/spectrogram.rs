@@ -17,7 +17,7 @@ fn new_hann_window(size: usize) -> Vec<f64> {
     let mut window = Vec::with_capacity(size);
 
     for n in 0..size {
-        let x = n as f64 / (size - 1) as f64;
+        let x = n as f64 / size as f64;
         let value = 0.5 * (1.0 - (2.0 * PI * x).cos());
         window.push(value);
     }
