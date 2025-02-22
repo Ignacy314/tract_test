@@ -83,7 +83,7 @@ impl Stft {
                 .zip(self.outdata.iter())
                 .enumerate()
                 .for_each(|(i, (r, &s))| {
-                    let sn = s.norm();
+                    let sn = s.norm_sqr();
                     self.perc[i] = filter.consume(sn);
                     self.harm[i] = r.consume(sn);
                     norm_col.push(sn);
