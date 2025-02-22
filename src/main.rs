@@ -274,7 +274,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     }
                     x += 1;
                     pb.inc(1);
-                    assert!(x < width, "Generated more STFT frames than expected");
+                    assert!(x <= width, "Generated more STFT frames than expected");
                 }
             }
             image.save(args.output)?;
