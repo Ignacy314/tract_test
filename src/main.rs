@@ -342,7 +342,7 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
     }
     for mut col in stft.process_tail(args.power) {
         assert_eq!(col.len(), 4097);
-        //assert!(x < width);
+        assert!(x < width);
 
         stft.hpss_one(&mut col, args.power);
         amplitude_to_db(&mut col);
