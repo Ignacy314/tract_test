@@ -127,10 +127,13 @@ struct TestMlpArgs {
 }
 
 fn amplitude_to_db(x_vec: &mut [f64], ref_db: f64) {
+    for x in x_vec.iter_mut() {
+        *x *= *x;
+    }
     let ref_db = if ref_db == 0.0 {
         let mut x_max = f64::MIN;
         for x in x_vec.iter_mut() {
-            *x *= *x;
+            //*x *= *x;
             if *x > x_max {
                 x_max = *x;
             }
