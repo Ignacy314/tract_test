@@ -146,7 +146,7 @@ impl Stft {
 
     pub fn process_tail(&mut self, power: i32) -> Vec<Vec<f64>> {
         let mut tail = Vec::new();
-        for (perc, norm_col) in self.cols.iter().chain(self.cols.iter().rev()) {
+        for (perc, norm_col) in self.cols.iter().rev() {
             self.row_filters
                 .iter_mut()
                 .zip(norm_col.iter())
