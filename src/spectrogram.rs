@@ -149,7 +149,7 @@ impl Stft {
 
     pub fn process_tail(&mut self, power: i32) -> Vec<Vec<f64>> {
         let mut tail = Vec::new();
-        for (_, rev_col) in self.cols.clone().iter().rev() {
+        for ((perc, norm_col), (_, rev_col)) in self.cols.iter().zip(self.cols.iter().rev()) {
             self.row_filters
                 .iter_mut()
                 .zip(rev_col.iter())
@@ -157,11 +157,10 @@ impl Stft {
                 .for_each(|(i, (r, &sn))| {
                     self.harm[i] = r.consume(sn);
                 });
-            if let Some((perc, mut norm_col)) = self.cols.push_back((self.perc, rev_col.to_vec())) {
-                self.perc = perc;
-                self.hpss_one(norm_col.as_mut(), power);
-                tail.push(norm_col);
-            }
+            self.perc = *perc;
+            let mut norm_col = norm_col.clone();
+            self.hpss_one(norm_col.as_mut(), power);
+            tail.push(norm_col);
         }
         tail
     }
