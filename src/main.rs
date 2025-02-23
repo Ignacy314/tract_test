@@ -403,8 +403,11 @@ fn test_mlp(args: TestMlpArgs) -> Result<(), Box<dyn Error>> {
     }
     let acc = count_ok as f32 / n as f32;
     let avg_diff = sum_diff as f32 / n as f32;
-    let max_maxes = maxes.iter().max_by(|a,b| a.total_cmp(b)).unwrap();
-    pb.finish_with_message(format!("Acc: {acc} | Avg diff: {avg_diff} | max: {max_maxes}"));
+    let max_maxes = maxes.iter().max_by(|a, b| a.total_cmp(b)).unwrap();
+    pb.finish_with_message(format!(
+        "Acc: {acc} | Avg diff: {avg_diff} | max_sample: {} | max_after_fft: {} | max_maxes: {max_maxes}",
+        stft.max_sample, stft.max_after_fft
+    ));
     Ok(())
 }
 

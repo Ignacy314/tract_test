@@ -37,7 +37,9 @@ pub struct Stft {
     row_filters: [Filter<f64>; ROWS],
     pub harm: [f64; ROWS],
     pub perc: [f64; ROWS],
-    filter_width: usize
+    filter_width: usize,
+    pub max_sample: f64,
+    pub max_after_fft: f64,
 }
 
 impl Stft {
@@ -59,7 +61,9 @@ impl Stft {
             row_filters: array::from_fn(|_| Filter::new(filter_width)),
             harm: [0f64; ROWS],
             perc: [0f64; ROWS],
-            filter_width
+            filter_width,
+            max_sample: f64::MIN,
+            max_after_fft: f64::MIN,
         }
     }
 
@@ -72,6 +76,9 @@ impl Stft {
     /// median filtered percussives. Returns the newest median filtered harmonic column vector and a vector
     /// consisting of the newest element of the median filtered percussives
     pub fn process_samples(&mut self, samples: &[f64]) -> Option<Vec<f64>> {
+        if samples[0] > self.max_sample {
+            self.max_sample = samples[0];
+        }
         self.sample_ring.push_many_back(samples);
 
         let mut out = None;
@@ -89,6 +96,9 @@ impl Stft {
                     self.perc[i] = filter.consume(sn);
                     self.harm[i] = r.consume(sn);
                     norm_col.push(sn);
+                    if sn > self.max_after_fft {
+                        self.max_after_fft = sn;
+                    }
                 });
 
             out = Some(norm_col);
