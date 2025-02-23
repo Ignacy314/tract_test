@@ -15,6 +15,7 @@ use tract_onnx::prelude::*;
 
 //use self::spectrogram::FILTER_WIDTH;
 use self::spectrogram::{Stft, HOP_LENGTH, N_FFT};
+use self::tract_num_traits::float::TotalOrder;
 
 mod spectrogram;
 
@@ -322,6 +323,8 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
             stft.hpss_one(&mut col, args.power);
             amplitude_to_db(&mut col);
             min_max_scale(&mut col);
+            assert!(col.iter().max_by(|a, b| a.total_cmp(b)).unwrap() == &1.0f64);
+            assert!(col.iter().min_by(|a, b| a.total_cmp(b)).unwrap() == &0.0f64);
 
             for (y, s) in col.iter().enumerate() {
                 image.get_pixel_mut(x, y as u32).0 = [((s * 255.0).round() as u8)];
