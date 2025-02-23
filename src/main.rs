@@ -122,7 +122,7 @@ fn amplitude_to_db(x_vec: &mut [f64], maxes: &mut Vec<f64>) {
             x_max = *x;
         }
     }
-    const REF: f64 = 128.0;
+    const REF: f64 = 128.0 * 128.0;
     maxes.push(x_max);
     let sub = 10.0 * REF.max(1e-10).log10();
     for x in x_vec.iter_mut() {
