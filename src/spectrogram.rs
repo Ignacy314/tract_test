@@ -77,7 +77,7 @@ impl Stft {
     /// consisting of the newest element of the median filtered percussives
     pub fn process_samples(&mut self, samples: &mut [f64]) -> Option<Vec<f64>> {
         for s in samples.iter_mut() {
-            *s *= 1000.0 / i32::MAX as f64;
+            *s /= i32::MAX as f64;
         }
         if samples[0] > self.max_sample {
             self.max_sample = samples[0];
