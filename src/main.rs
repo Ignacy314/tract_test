@@ -52,7 +52,7 @@ struct GenerateArgs {
     /// Power of the softmask
     #[arg(short, long)]
     power: i32,
-    ///
+    /// Amplitude to dB reference value
     #[arg(short, long)]
     ref_db: f64,
 }
@@ -80,6 +80,9 @@ struct InferArgs {
     /// Power of the softmask
     #[arg(short, long)]
     power: i32,
+    /// Amplitude to dB reference value
+    #[arg(short, long)]
+    ref_db: f64,
 }
 
 #[derive(clap::Args)]
@@ -96,6 +99,9 @@ struct ImgGenArgs {
     /// Power of the softmask
     #[arg(short, long)]
     power: i32,
+    /// Amplitude to dB reference value
+    #[arg(short, long)]
+    ref_db: f64,
 }
 
 #[derive(clap::Args)]
@@ -115,19 +121,20 @@ struct TestMlpArgs {
     /// Power of the softmask
     #[arg(short, long)]
     power: i32,
+    /// Amplitude to dB reference value
+    #[arg(short, long)]
+    ref_db: f64,
 }
 
-fn amplitude_to_db(x_vec: &mut [f64], maxes: &mut Vec<f64>) {
-    let mut x_max = f64::MIN;
-    for x in x_vec.iter_mut() {
-        *x *= *x;
-        if *x > x_max {
-            x_max = *x;
-        }
-    }
-    const REF: f64 = 128.0 * 128.0;
-    maxes.push(x_max);
-    let sub = 10.0 * REF.max(1e-10).log10();
+fn amplitude_to_db(x_vec: &mut [f64], ref_db: f64) {
+    //let mut x_max = f64::MIN;
+    //for x in x_vec.iter_mut() {
+    //    *x *= *x;
+    //    if *x > x_max {
+    //        x_max = *x;
+    //    }
+    //}
+    let sub = 10.0 * ref_db.powi(2).max(1e-10).log10();
     for x in x_vec.iter_mut() {
         *x = (10.0 * x.max(1e-10).log10() - sub).max(-80.0);
     }
@@ -172,7 +179,6 @@ fn generate(args: GenerateArgs) -> Result<(), Box<dyn Error>> {
     let mut i = 0;
     let mut stft = Stft::new(N_FFT, HOP_LENGTH, args.width);
     let samples = reader.samples::<i32>();
-    let mut maxes = Vec::new();
     for s in samples {
         let sample = s?;
         if let Some(mut col) = stft.process_samples(&mut [sample as f64]) {
@@ -181,7 +187,7 @@ fn generate(args: GenerateArgs) -> Result<(), Box<dyn Error>> {
             assert!(i <= width);
 
             stft.hpss_one(&mut col, args.power);
-            amplitude_to_db(&mut col, &mut maxes);
+            amplitude_to_db(&mut col, args.ref_db);
             min_max_scale(&mut col);
 
             for s in &col[..4096] {
@@ -191,7 +197,16 @@ fn generate(args: GenerateArgs) -> Result<(), Box<dyn Error>> {
             pb.inc(1);
         }
     }
-    pb.finish();
+    for mut col in stft.process_tail(args.power) {
+        amplitude_to_db(&mut col, args.ref_db);
+        min_max_scale(&mut col);
+        for s in &col[..4096] {
+            write!(w, "{s},")?;
+        }
+        writeln!(w, "{}", col[4096])?;
+        pb.inc(1);
+    }
+    pb.finish_with_message(format!("Frames processed: {}", pb.position()));
     Ok(())
 }
 
@@ -241,7 +256,6 @@ fn infer(args: InferArgs) -> Result<(), Box<dyn Error>> {
     let mut stft = Stft::new(N_FFT, HOP_LENGTH, args.width);
     let samples = reader.samples::<i32>();
     let mut f = 0;
-    let mut maxes = Vec::new();
     for s in samples {
         let sample = s?;
         if let Some(mut col) = stft.process_samples(&mut [sample as f64]) {
@@ -249,7 +263,7 @@ fn infer(args: InferArgs) -> Result<(), Box<dyn Error>> {
             f += 1;
 
             stft.hpss_one(&mut col, args.power);
-            amplitude_to_db(&mut col, &mut maxes);
+            amplitude_to_db(&mut col, args.ref_db);
             min_max_scale(&mut col);
 
             if let Some(resnet) = resnet.as_ref() {
@@ -321,14 +335,14 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
 
     let mut stft = Stft::new(N_FFT, HOP_LENGTH, args.width);
     let samples = reader.samples::<i32>();
-    let mut maxes = Vec::new();
     for s in samples {
         let sample = s?;
         if let Some(mut col) = stft.process_samples(&mut [sample as f64]) {
             assert_eq!(col.len(), 4097);
+            assert!(x < width);
 
             stft.hpss_one(&mut col, args.power);
-            amplitude_to_db(&mut col, &mut maxes);
+            amplitude_to_db(&mut col, args.ref_db);
             min_max_scale(&mut col);
 
             for (y, s) in col.iter().enumerate() {
@@ -336,11 +350,26 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
             }
             x += 1;
             pb.inc(1);
-            assert!(x <= width);
         }
     }
+    for mut col in stft.process_tail(args.power) {
+        assert_eq!(col.len(), 4097);
+        assert!(x < width);
+
+        stft.hpss_one(&mut col, args.power);
+        amplitude_to_db(&mut col, args.ref_db);
+        min_max_scale(&mut col);
+
+        if x < width {
+            for (y, s) in col.iter().enumerate() {
+                image.get_pixel_mut(x, y as u32).0 = [((s * 255.0).round() as u8)];
+            }
+        }
+        x += 1;
+        pb.inc(1);
+    }
     image.save(args.output)?;
-    pb.finish();
+    pb.finish_with_message(format!("Frames processed: {}", pb.position()));
     Ok(())
 }
 
@@ -371,14 +400,13 @@ fn test_mlp(args: TestMlpArgs) -> Result<(), Box<dyn Error>> {
 
     let mut stft = Stft::new(N_FFT, HOP_LENGTH, args.width);
     let samples = reader.samples::<i32>();
-    let mut maxes = Vec::new();
     for s in samples {
         let sample = s?;
         if let Some(mut col) = stft.process_samples(&mut [sample as f64]) {
             assert_eq!(col.len(), 4097);
             if let Some(csv_result) = csv.next() {
                 stft.hpss_one(&mut col, args.power);
-                amplitude_to_db(&mut col, &mut maxes);
+                amplitude_to_db(&mut col, args.ref_db);
                 min_max_scale(&mut col);
 
                 let mlp_input: Tensor = tract_ndarray::Array1::from_vec(col).into();
@@ -405,12 +433,38 @@ fn test_mlp(args: TestMlpArgs) -> Result<(), Box<dyn Error>> {
             }
         }
     }
+    for mut col in stft.process_tail(args.power) {
+        if let Some(csv_result) = csv.next() {
+            amplitude_to_db(&mut col, args.ref_db);
+            min_max_scale(&mut col);
+
+            let mlp_input: Tensor = tract_ndarray::Array1::from_vec(col).into();
+            let mlp_result = mlp.run(tvec!(mlp_input.into()))?;
+            let mlp_class = mlp_result[0]
+                .to_array_view::<TDim>()?
+                .get(0)
+                .unwrap()
+                .to_i64()?;
+
+            let record: i64 = csv_result?;
+
+            //println!("{record} | {mlp_class}");
+
+            let diff = (mlp_class - record).abs();
+            if diff == 0 {
+                count_ok += 1;
+            }
+            sum_diff += diff;
+
+            pb.inc(1);
+        }
+    }
+    pb.finish_with_message(format!("Frames processed: {}", pb.position()));
     let acc = count_ok as f32 / n as f32;
     let avg_diff = sum_diff as f32 / n as f32;
-    let max_maxes = maxes.iter().max_by(|a, b| a.total_cmp(b)).unwrap();
     pb.finish_with_message(format!(
-        "Acc: {acc} | Avg diff: {avg_diff} | max_sample: {} | max_after_fft: {} | max_maxes: {max_maxes}",
-        stft.max_sample, stft.max_after_fft
+        "Acc: {acc} | Avg diff: {avg_diff} | Frames processed: {}",
+        pb.position()
     ));
     Ok(())
 }
