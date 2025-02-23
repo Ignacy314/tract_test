@@ -47,7 +47,7 @@ pub struct Stft {
 }
 
 impl Stft {
-    pub fn new(n_fft: usize, hop_length: usize, filter_width: usize) -> Self {
+    pub fn new(n_fft: usize, hop_length: usize, _filter_width: usize) -> Self {
         let mut planner = RealFftPlanner::new();
         let forward = planner.plan_fft_forward(n_fft);
         let indata = forward.make_input_vec();
@@ -68,7 +68,7 @@ impl Stft {
             perc: [0f64; ROWS],
             //norm: [0f64; ROWS],
             ready_counter: 0,
-            filter_width,
+            filter_width: FILTER_WIDTH,
         }
     }
 
