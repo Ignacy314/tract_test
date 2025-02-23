@@ -128,22 +128,25 @@ fn amplitude_to_db(x_vec: &mut [f64]) {
     }
 }
 
-fn min_max_scale(x_vec: &[f64]) -> Vec<f32> {
-    let mut x_max = f32::MIN;
-    let mut x_min = f32::MAX;
-    for &x in x_vec {
-        if x as f32 > x_max {
-            x_max = x as f32;
+fn min_max_scale(x_vec: &mut [f64]) {
+    let mut x_max = f64::MIN;
+    let mut x_min = f64::MAX;
+    for &x in x_vec.iter() {
+        if x > x_max {
+            x_max = x;
         }
-        if (x as f32) < x_min {
-            x_min = x as f32;
+        if x < x_min {
+            x_min = x;
         }
     }
-    let x_std = x_vec
-        .iter()
-        .map(|x| (*x as f32 - x_min) / (x_max - x_min))
-        .collect::<Vec<_>>();
-    x_std
+    for x in x_vec {
+        *x = (*x - x_min) / (x_max - x_min);
+    }
+    //let x_std = x_vec
+    //    .iter()
+    //    .map(|x| (x - x_min) / (x_max - x_min))
+    //    .collect::<Vec<_>>();
+    //x_std
 }
 
 fn generate(args: GenerateArgs) -> Result<(), Box<dyn Error>> {
@@ -173,12 +176,12 @@ fn generate(args: GenerateArgs) -> Result<(), Box<dyn Error>> {
 
             stft.hpss_one(&mut col, args.power);
             amplitude_to_db(&mut col);
-            let scaled = min_max_scale(&col);
+            min_max_scale(&mut col);
 
-            for s in &scaled[..4096] {
+            for s in &col[..4096] {
                 write!(w, "{s},")?;
             }
-            writeln!(w, "{}", scaled[4096])?;
+            writeln!(w, "{}", col[4096])?;
             pb.inc(1);
         }
     }
@@ -240,11 +243,11 @@ fn infer(args: InferArgs) -> Result<(), Box<dyn Error>> {
 
             stft.hpss_one(&mut col, args.power);
             amplitude_to_db(&mut col);
-            let scaled = min_max_scale(&col);
+            min_max_scale(&mut col);
 
             if let Some(resnet) = resnet.as_ref() {
                 let mut image_col = [0f32; 4097];
-                for (i, s) in scaled.iter().enumerate() {
+                for (i, s) in col.iter().enumerate() {
                     image_col[i] = *s as f32;
                 }
                 buffer.push_back(image_col);
@@ -261,7 +264,7 @@ fn infer(args: InferArgs) -> Result<(), Box<dyn Error>> {
                     let resnet_result = resnet.run(tvec!(resnet_input.into()))?;
                     let elapsed = start.elapsed();
 
-                    let mlp_input: Tensor = tract_ndarray::Array1::from_vec(scaled).into();
+                    let mlp_input: Tensor = tract_ndarray::Array1::from_vec(col).into();
                     let mlp_result = mlp.run(tvec!(mlp_input.into()))?;
 
                     let resnet_val = &resnet_result[0].to_array_view::<f32>()?;
@@ -273,25 +276,16 @@ fn infer(args: InferArgs) -> Result<(), Box<dyn Error>> {
 
                     println!(
                         "{f:6}: {:2} | {} | {:.3} | {:4} | {start_row}",
-                        mlp_result[0]
-                            .to_array_view::<TDim>()?
-                            .get(0)
-                            .unwrap(),
+                        mlp_result[0].to_array_view::<TDim>()?.get(0).unwrap(),
                         resnet_best.1,
                         resnet_best.0,
                         elapsed.as_millis()
                     );
                 }
             } else {
-                let mlp_input: Tensor = tract_ndarray::Array1::from_vec(scaled).into();
+                let mlp_input: Tensor = tract_ndarray::Array1::from_vec(col).into();
                 let mlp_result = mlp.run(tvec!(mlp_input.into()))?;
-                println!(
-                    "{f:6}: {:2}",
-                    mlp_result[0]
-                        .to_array_view::<TDim>()?
-                        .get(0)
-                        .unwrap(),
-                );
+                println!("{f:6}: {:2}", mlp_result[0].to_array_view::<TDim>()?.get(0).unwrap(),);
             }
 
             if f >= args.frames {
@@ -327,9 +321,9 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
 
             stft.hpss_one(&mut col, args.power);
             amplitude_to_db(&mut col);
-            let scaled = min_max_scale(&col);
+            min_max_scale(&mut col);
 
-            for (y, s) in scaled.iter().enumerate() {
+            for (y, s) in col.iter().enumerate() {
                 image.get_pixel_mut(x, y as u32).0 = [((s * 255.0).round() as u8)];
             }
             x += 1;
@@ -344,7 +338,7 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
 
 fn test_mlp(args: TestMlpArgs) -> Result<(), Box<dyn Error>> {
     let mlp = tract_onnx::onnx().model_for_path(args.mlp)?;
-    let mlp = mlp.with_input_fact(0, f32::fact([4097]).into())?;
+    let mlp = mlp.with_input_fact(0, f64::fact([4097]).into())?;
     let mlp = mlp.into_optimized()?;
     let mlp = mlp.into_runnable()?;
 
@@ -376,9 +370,9 @@ fn test_mlp(args: TestMlpArgs) -> Result<(), Box<dyn Error>> {
             if let Some(csv_result) = csv.next() {
                 stft.hpss_one(&mut col, args.power);
                 amplitude_to_db(&mut col);
-                let scaled = min_max_scale(&col);
+                min_max_scale(&mut col);
 
-                let mlp_input: Tensor = tract_ndarray::Array1::from_vec(scaled).into();
+                let mlp_input: Tensor = tract_ndarray::Array1::from_vec(col).into();
                 let mlp_result = mlp.run(tvec!(mlp_input.into()))?;
                 let mlp_class = mlp_result[0]
                     .to_array_view::<TDim>()?
