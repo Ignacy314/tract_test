@@ -128,20 +128,20 @@ fn amplitude_to_db(x_vec: &mut [f64]) {
     }
 }
 
-fn min_max_scale(x_vec: &[f64]) -> Vec<f64> {
-    let mut x_max = f64::MIN;
-    let mut x_min = f64::MAX;
+fn min_max_scale(x_vec: &[f64]) -> Vec<f32> {
+    let mut x_max = f32::MIN;
+    let mut x_min = f32::MAX;
     for &x in x_vec {
-        if x > x_max {
-            x_max = x;
+        if x as f32 > x_max {
+            x_max = x as f32;
         }
-        if x < x_min {
-            x_min = x;
+        if (x as f32) < x_min {
+            x_min = x as f32;
         }
     }
     let x_std = x_vec
         .iter()
-        .map(|x| (x - x_min) / (x_max - x_min))
+        .map(|x| (*x as f32 - x_min) / (x_max - x_min))
         .collect::<Vec<_>>();
     x_std
 }
