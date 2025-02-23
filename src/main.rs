@@ -150,9 +150,9 @@ fn amplitude_to_db(x_vec: &mut [f64], ref_db: f64) {
             x_max = *x;
         }
     }
-    //for x in x_vec.iter_mut() {
-    //    *x = x.max(x_max - 80.0);
-    //}
+    for x in x_vec.iter_mut() {
+        *x = x.max(x_max - 80.0);
+    }
 }
 
 fn min_max_scale(x_vec: &mut [f64]) {
