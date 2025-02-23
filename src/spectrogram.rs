@@ -11,7 +11,7 @@ use strider::{SliceRing, SliceRingImpl};
 pub const N_FFT: usize = 8192;
 pub const HOP_LENGTH: usize = 4096;
 pub const FILTER_WIDTH: usize = 31;
-const COLS: usize = (FILTER_WIDTH + 1) / 2;
+const COLS: usize = FILTER_WIDTH / 2;
 const ROWS: usize = N_FFT / 2 + 1;
 
 fn new_hann_window(size: usize) -> Vec<f64> {
@@ -36,13 +36,13 @@ pub struct Stft {
     outdata: Vec<Complex<f64>>,
     scratch: Vec<Complex<f64>>,
     row_filters: [Filter<f64>; ROWS],
-    cols: CircularBuffer<COLS, [f64; ROWS]>,
-    //cols: CircularBuffer<COLS, ([f64; ROWS], Vec<f64>)>,
+    //cols: CircularBuffer<COLS, [f64; ROWS]>,
+    cols: CircularBuffer<COLS, ([f64; ROWS], Vec<f64>)>,
     pub harm: [f64; ROWS],
     pub perc: [f64; ROWS],
     //norm: [f64; ROWS],
     ready_counter: usize,
-    filter_width: usize
+    filter_width: usize,
 }
 
 impl Stft {
@@ -67,7 +67,7 @@ impl Stft {
             perc: [0f64; ROWS],
             //norm: [0f64; ROWS],
             ready_counter: 0,
-            filter_width
+            filter_width,
         }
     }
 
@@ -100,9 +100,7 @@ impl Stft {
                     norm_col.push(sn);
                 });
             if self.ready_counter >= FILTER_WIDTH {
-                if let Some(perc) =
-                    self.cols.push_back(self.perc)
-                {
+                if let Some((perc, norm_col)) = self.cols.push_back((self.perc, norm_col)) {
                     self.perc = perc;
                     out = Some(norm_col);
                 }
