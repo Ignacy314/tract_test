@@ -98,7 +98,7 @@ impl Stft {
             for (i, sn) in relfect.enumerate() {
                 let f = filter.consume(*sn);
                 if i >= self.filter_width {
-                    self.harm[i - self.filter_width] = f;
+                    self.perc[i - self.filter_width] = f;
                 }
             }
 
@@ -118,7 +118,7 @@ impl Stft {
                         .zip(norm_col.iter())
                         .enumerate()
                         .for_each(|(i, (r, &sn))| {
-                            self.perc[i] = r.consume(sn);
+                            self.harm[i] = r.consume(sn);
                         });
                 }
                 _ => {
@@ -127,13 +127,13 @@ impl Stft {
                         .zip(norm_col.iter())
                         .enumerate()
                         .for_each(|(i, (r, &sn))| {
-                            self.perc[i] = r.consume(sn);
+                            self.harm[i] = r.consume(sn);
                         });
                 }
             }
 
-            if let Some((harm, norm_col)) = self.cols.push_back((self.harm, norm_col)) {
-                self.harm = harm;
+            if let Some((perc, norm_col)) = self.cols.push_back((self.perc, norm_col)) {
+                self.perc = perc;
                 out = Some(norm_col);
             }
 
@@ -146,10 +146,10 @@ impl Stft {
 
     pub fn process_tail(&mut self, power: i32) -> Vec<Vec<f64>> {
         let mut tail = Vec::new();
-        for (perc, norm_col) in self.cols.iter().rev() {
+        for ((perc, norm_col), (_, rev_col)) in self.cols.iter().zip(self.cols.iter().rev()) {
             self.row_filters
                 .iter_mut()
-                .zip(norm_col.iter())
+                .zip(rev_col.iter())
                 .enumerate()
                 .for_each(|(i, (r, &sn))| {
                     self.harm[i] = r.consume(sn);
