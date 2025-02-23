@@ -428,6 +428,7 @@ fn test_mlp(args: TestMlpArgs) -> Result<(), Box<dyn Error>> {
                 sum_diff += diff;
 
                 pb.inc(1);
+                pb.set_message(format!("Acc: {}", count_ok as f32 / pb.position() as f32));
             } else {
                 break;
             }
