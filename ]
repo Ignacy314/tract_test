@@ -168,7 +168,6 @@ fn generate(args: GenerateArgs) -> Result<(), Box<dyn Error>> {
     let mut i = 0;
     let mut stft = Stft::new(N_FFT, HOP_LENGTH, args.width);
     let samples = reader.samples::<i32>();
-    let mut maxes = Vec::new();
     for s in samples {
         let sample = s?;
         if let Some(mut col) = stft.process_samples(&[sample as f64]) {
@@ -237,7 +236,6 @@ fn infer(args: InferArgs) -> Result<(), Box<dyn Error>> {
     let mut stft = Stft::new(N_FFT, HOP_LENGTH, args.width);
     let samples = reader.samples::<i32>();
     let mut f = 0;
-    let mut maxes = Vec::new();
     for s in samples {
         let sample = s?;
         if let Some(mut col) = stft.process_samples(&[sample as f64]) {
@@ -317,14 +315,13 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
 
     let mut stft = Stft::new(N_FFT, HOP_LENGTH, args.width);
     let samples = reader.samples::<i32>();
-    let mut maxes = Vec::new();
     for s in samples {
         let sample = s?;
         if let Some(mut col) = stft.process_samples(&[sample as f64]) {
             assert_eq!(col.len(), 4097);
 
             stft.hpss_one(&mut col, args.power);
-            amplitude_to_db(&mut col, &mut maxes);
+            amplitude_to_db(&mut col, &mut maxes)
             min_max_scale(&mut col);
 
             for (y, s) in col.iter().enumerate() {
