@@ -140,8 +140,15 @@ fn amplitude_to_db(x_vec: &mut [f64], ref_db: f64) {
         ref_db
     };
     let sub = 10.0 * ref_db.powi(2).max(1e-10).log10();
+    let mut x_max = f64::MIN;
     for x in x_vec.iter_mut() {
-        *x = (10.0 * x.max(1e-10).log10() - sub).max(-80.0);
+        *x = 10.0 * x.max(1e-10).log10() - sub;
+        if *x > x_max {
+            x_max = *x;
+        }
+    }
+    for x in x_vec.iter_mut() {
+        *x = x.max(x_max - 80.0);
     }
 }
 
