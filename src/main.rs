@@ -122,8 +122,9 @@ fn amplitude_to_db(x_vec: &mut [f64], maxes: &mut Vec<f64>) {
             x_max = *x;
         }
     }
+    const REF: f64 = 548827489476.9874;
     maxes.push(x_max);
-    let sub = 10.0 * x_max.max(1e-10).log10();
+    let sub = 10.0 * REF.max(1e-10).log10();
     for x in x_vec.iter_mut() {
         *x = (10.0 * x.max(1e-10).log10() - sub).max(-80.0);
     }
@@ -373,7 +374,7 @@ fn test_mlp(args: TestMlpArgs) -> Result<(), Box<dyn Error>> {
         if let Some(mut col) = stft.process_samples(&mut [sample as f64]) {
             assert_eq!(col.len(), 4097);
             if let Some(csv_result) = csv.next() {
-                //stft.hpss_one(&mut col, args.power);
+                stft.hpss_one(&mut col, args.power);
                 amplitude_to_db(&mut col, &mut maxes);
                 min_max_scale(&mut col);
 
