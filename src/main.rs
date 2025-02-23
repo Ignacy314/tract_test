@@ -308,7 +308,7 @@ fn infer(args: InferArgs) -> Result<(), Box<dyn Error>> {
 fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
     let mut reader = hound::WavReader::open(args.input)?;
     const HEIGHT: u32 = 4097;
-    let width = reader.duration() / 4096;
+    let width = (reader.duration() - 4096) / 4096;
     let pb = ProgressBar::new(u64::from(width));
     let t = f64::from(width).log10().ceil() as u64;
     pb.set_style(
