@@ -11,7 +11,8 @@ use strider::{SliceRing, SliceRingImpl};
 pub const N_FFT: usize = 8192;
 pub const HOP_LENGTH: usize = 4096;
 pub const FILTER_WIDTH: usize = 31;
-const COLS: usize = FILTER_WIDTH / 2;
+pub const HALF_FILTER_WIDTH: usize = 31 / 2;
+const COLS: usize = HALF_FILTER_WIDTH;
 const ROWS: usize = N_FFT / 2 + 1;
 
 fn new_hann_window(size: usize) -> Vec<f64> {
@@ -87,31 +88,78 @@ impl Stft {
             self.compute_into_outdata();
 
             let mut filter = Filter::new(self.filter_width);
-            let mut norm_col = Vec::new();
-            self.row_filters
-                .iter_mut()
-                .zip(self.outdata.iter())
-                .enumerate()
-                .for_each(|(i, (r, &s))| {
-                    let sn = s.norm();
-                    self.perc[i] = filter.consume(sn);
-                    self.harm[i] = r.consume(sn);
-                    //self.norm[i] = sn;
-                    norm_col.push(sn);
-                });
-            if self.ready_counter >= FILTER_WIDTH {
-                if let Some((perc, norm_col)) = self.cols.push_back((self.perc, norm_col)) {
-                    self.perc = perc;
-                    out = Some(norm_col);
+            let norm_col = self.outdata.iter().map(|s| s.norm()).collect::<Vec<f64>>();
+            let relfect = norm_col
+                .iter()
+                .take(self.filter_width / 2)
+                .chain(norm_col.iter())
+                .chain(norm_col.iter().rev().take(self.filter_width / 2));
+
+            for (i, sn) in relfect.enumerate() {
+                let f = filter.consume(*sn);
+                if i >= self.filter_width {
+                    self.perc[i - self.filter_width] = f;
                 }
-            } else {
-                self.ready_counter += 1;
             }
 
-            //out = Some(self.norm);
+            match self.ready_counter {
+                0..HALF_FILTER_WIDTH => {}
+                HALF_FILTER_WIDTH => {
+                    for (_, col) in self.cols.iter().rev().chain(self.cols.iter()) {
+                        self.row_filters
+                            .iter_mut()
+                            .zip(col.iter())
+                            .for_each(|(r, c)| {
+                                r.consume(*c);
+                            });
+                    }
+                    self.row_filters
+                        .iter_mut()
+                        .zip(norm_col.iter())
+                        .enumerate()
+                        .for_each(|(i, (r, &sn))| {
+                            self.harm[i] = r.consume(sn);
+                        });
+                }
+                _ => {
+                    self.row_filters
+                        .iter_mut()
+                        .zip(norm_col.iter())
+                        .enumerate()
+                        .for_each(|(i, (r, &sn))| {
+                            self.harm[i] = r.consume(sn);
+                        });
+                }
+            }
+
+            if let Some((perc, norm_col)) = self.cols.push_back((self.perc, norm_col)) {
+                self.perc = perc;
+                out = Some(norm_col);
+            }
+
+            self.ready_counter += 1;
+
             self.sample_ring.drop_many_front(self.hop_length);
         }
         out
+    }
+
+    pub fn process_tail(&mut self, power: i32) -> Vec<Vec<f64>> {
+        let mut tail = Vec::new();
+        for (perc, norm_col) in self.cols.iter().chain(self.cols.iter().rev()) {
+            self.row_filters
+                .iter_mut()
+                .zip(norm_col.iter())
+                .enumerate()
+                .for_each(|(i, (r, &sn))| {
+                    self.harm[i] = r.consume(sn);
+                });
+            self.perc = *perc;
+            let mut norm_col = norm_col.clone();
+            self.hpss_one(norm_col.as_mut(), power);
+            tail.push(norm_col);
+        }
+        tail
     }
 
     /// Computes the next FFT of the STFT

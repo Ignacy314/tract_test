@@ -185,7 +185,16 @@ fn generate(args: GenerateArgs) -> Result<(), Box<dyn Error>> {
             pb.inc(1);
         }
     }
-    pb.finish();
+    for mut col in stft.process_tail(args.power) {
+        amplitude_to_db(&mut col);
+        min_max_scale(&mut col);
+        for s in &col[..4096] {
+            write!(w, "{s},")?;
+        }
+        writeln!(w, "{}", col[4096])?;
+        pb.inc(1);
+    }
+    pb.finish_with_message(format!("Frames processed: {}", pb.position()));
     Ok(())
 }
 
@@ -331,8 +340,22 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
             assert!(x <= width);
         }
     }
+    for mut col in stft.process_tail(args.power) {
+        assert_eq!(col.len(), 4097);
+
+        stft.hpss_one(&mut col, args.power);
+        amplitude_to_db(&mut col);
+        min_max_scale(&mut col);
+
+        for (y, s) in col.iter().enumerate() {
+            image.get_pixel_mut(x, y as u32).0 = [((s * 255.0).round() as u8)];
+        }
+        x += 1;
+        pb.inc(1);
+        assert!(x <= width);
+    }
     image.save(args.output)?;
-    pb.finish();
+    pb.finish_with_message(format!("Frames processed: {}", pb.position()));
     Ok(())
 }
 
@@ -396,9 +419,39 @@ fn test_mlp(args: TestMlpArgs) -> Result<(), Box<dyn Error>> {
             }
         }
     }
+    for mut col in stft.process_tail(args.power) {
+        if let Some(csv_result) = csv.next() {
+            amplitude_to_db(&mut col);
+            min_max_scale(&mut col);
+
+            let mlp_input: Tensor = tract_ndarray::Array1::from_vec(col).into();
+            let mlp_result = mlp.run(tvec!(mlp_input.into()))?;
+            let mlp_class = mlp_result[0]
+                .to_array_view::<TDim>()?
+                .get(0)
+                .unwrap()
+                .to_i64()?;
+
+            let record: i64 = csv_result?;
+
+            println!("{record} | {mlp_class}");
+
+            let diff = (mlp_class - record).abs();
+            if diff == 0 {
+                count_ok += 1;
+            }
+            sum_diff += diff;
+
+            pb.inc(1);
+        }
+    }
+    pb.finish_with_message(format!("Frames processed: {}", pb.position()));
     let acc = count_ok as f32 / n as f32;
     let avg_diff = sum_diff as f32 / n as f32;
-    pb.finish_with_message(format!("Acc: {acc} | Avg diff: {avg_diff}"));
+    pb.finish_with_message(format!(
+        "Acc: {acc} | Avg diff: {avg_diff} | Frames processed: {}",
+        pb.position()
+    ));
     Ok(())
 }
 
