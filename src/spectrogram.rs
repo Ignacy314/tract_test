@@ -18,7 +18,7 @@ fn new_hann_window(size: usize) -> Vec<f64> {
     let mut window = Vec::with_capacity(size);
 
     for n in 0..size {
-        let x = n as f64 / (size - 1) as f64;
+        let x = n as f64 / size as f64;
         let value = 0.5 * (1.0 - (2.0 * PI * x).cos());
         window.push(value);
     }
@@ -42,10 +42,11 @@ pub struct Stft {
     pub perc: [f64; ROWS],
     //norm: [f64; ROWS],
     ready_counter: usize,
+    filter_width: usize
 }
 
 impl Stft {
-    pub fn new(n_fft: usize, hop_length: usize) -> Self {
+    pub fn new(n_fft: usize, hop_length: usize, filter_width: usize) -> Self {
         let mut planner = RealFftPlanner::new();
         let forward = planner.plan_fft_forward(n_fft);
         let indata = forward.make_input_vec();
@@ -66,6 +67,7 @@ impl Stft {
             perc: [0f64; ROWS],
             //norm: [0f64; ROWS],
             ready_counter: 0,
+            filter_width
         }
     }
 
@@ -84,8 +86,8 @@ impl Stft {
         while self.contains_enough_to_compute() {
             self.compute_into_outdata();
 
-            let mut filter = Filter::new(FILTER_WIDTH);
-            let mut norm = Vec::new();
+            let mut filter = Filter::new(self.filter_width);
+            let mut norm_col = Vec::new();
             self.row_filters
                 .iter_mut()
                 .zip(self.outdata.iter())
@@ -95,14 +97,14 @@ impl Stft {
                     self.perc[i] = filter.consume(sn);
                     self.harm[i] = r.consume(sn);
                     //self.norm[i] = sn;
-                    norm.push(sn);
+                    norm_col.push(sn);
                 });
             if self.ready_counter >= FILTER_WIDTH {
                 if let Some(perc) =
                     self.cols.push_back(self.perc)
                 {
                     self.perc = perc;
-                    out = Some(norm);
+                    out = Some(norm_col);
                 }
             } else {
                 self.ready_counter += 1;
@@ -131,19 +133,15 @@ impl Stft {
 
     /// Computes hpss for one column of median filtered harmonics, and a vector of the last
     /// elements of the corresponding median filtered percussives
-    pub fn hpss_one(&self, x_vec: &mut [f64]) {
-        //if self.cols.is_full() {
-        let mask = Self::softmask_one(&self.harm, &self.perc);
-        for (x, m) in x_vec.iter_mut().zip(mask) {
-            *x *= m
+    pub fn hpss_one(&self, x: &mut [f64], power: i32) {
+        let mask = Self::softmask_one(&self.harm, &self.perc, power);
+        for (h, m) in x.iter_mut().zip(mask) {
+            *h *= m
         }
-        //return true;
-        //}
-        //false
     }
 
     /// Computes softmask for the vector x with vector y as reference
-    fn softmask_one(x: &[f64], y: &[f64]) -> Vec<f64> {
+    fn softmask_one(x: &[f64], y: &[f64], power: i32) -> Vec<f64> {
         let z = x.iter().zip(y).map(|(x, y)| {
             let maxi = x.max(*y);
             if maxi < f64::MIN_POSITIVE {
@@ -156,10 +154,10 @@ impl Stft {
         let mut mask = x
             .iter()
             .zip(z.clone())
-            .map(|(x, z)| (x / z.0).powi(2))
+            .map(|(x, z)| (x / z.0).powi(power))
             .collect::<Vec<f64>>();
 
-        let ref_mask = y.iter().zip(z.clone()).map(|(y, z)| (y / z.0).powi(2));
+        let ref_mask = y.iter().zip(z.clone()).map(|(y, z)| (y / z.0).powi(power));
 
         for ((m, r), z) in (mask.iter_mut().zip(ref_mask)).zip(z) {
             if z.1 {
