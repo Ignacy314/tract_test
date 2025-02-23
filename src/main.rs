@@ -436,7 +436,7 @@ fn test_mlp(args: TestMlpArgs) -> Result<(), Box<dyn Error>> {
 
             let record: i64 = csv_result?;
 
-            //println!("{record} | {mlp_class}");
+            println!("{record} | {mlp_class}");
 
             let diff = (mlp_class - record).abs();
             if diff == 0 {
