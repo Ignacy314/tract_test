@@ -308,7 +308,7 @@ fn infer(args: InferArgs) -> Result<(), Box<dyn Error>> {
 fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
     let mut reader = hound::WavReader::open(args.input)?;
     const HEIGHT: u32 = 4097;
-    let width = (reader.duration() - 4096) / 4096;
+    let width = reader.duration() / 4096;
     let pb = ProgressBar::new(u64::from(width));
     let t = f64::from(width).log10().ceil() as u64;
     pb.set_style(
@@ -327,6 +327,7 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
         let sample = s?;
         if let Some(mut col) = stft.process_samples(&[sample as f64]) {
             assert_eq!(col.len(), 4097);
+            assert!(x < width);
 
             stft.hpss_one(&mut col, args.power);
             amplitude_to_db(&mut col);
@@ -337,22 +338,23 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
             }
             x += 1;
             pb.inc(1);
-            assert!(x <= width);
         }
     }
     for mut col in stft.process_tail(args.power) {
         assert_eq!(col.len(), 4097);
+        //assert!(x < width);
 
         stft.hpss_one(&mut col, args.power);
         amplitude_to_db(&mut col);
         min_max_scale(&mut col);
 
-        for (y, s) in col.iter().enumerate() {
-            image.get_pixel_mut(x, y as u32).0 = [((s * 255.0).round() as u8)];
+        if x < width {
+            for (y, s) in col.iter().enumerate() {
+                image.get_pixel_mut(x, y as u32).0 = [((s * 255.0).round() as u8)];
+            }
         }
         x += 1;
         pb.inc(1);
-        assert!(x <= width);
     }
     image.save(args.output)?;
     pb.finish_with_message(format!("Frames processed: {}", pb.position()));
