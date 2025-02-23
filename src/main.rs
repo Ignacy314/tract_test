@@ -373,7 +373,7 @@ fn test_mlp(args: TestMlpArgs) -> Result<(), Box<dyn Error>> {
         if let Some(mut col) = stft.process_samples(&[sample as f64]) {
             assert_eq!(col.len(), 4097);
             if let Some(csv_result) = csv.next() {
-                stft.hpss_one(&mut col, args.power);
+                //stft.hpss_one(&mut col, args.power);
                 amplitude_to_db(&mut col, &mut maxes);
                 min_max_scale(&mut col);
 
