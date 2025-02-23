@@ -98,7 +98,7 @@ impl Stft {
             for (i, sn) in relfect.enumerate() {
                 let f = filter.consume(*sn);
                 if i >= self.filter_width {
-                    self.perc[i - self.filter_width] = f;
+                    self.harm[i - self.filter_width] = f;
                 }
             }
 
@@ -118,7 +118,7 @@ impl Stft {
                         .zip(norm_col.iter())
                         .enumerate()
                         .for_each(|(i, (r, &sn))| {
-                            self.harm[i] = r.consume(sn);
+                            self.perc[i] = r.consume(sn);
                         });
                 }
                 _ => {
@@ -127,13 +127,13 @@ impl Stft {
                         .zip(norm_col.iter())
                         .enumerate()
                         .for_each(|(i, (r, &sn))| {
-                            self.harm[i] = r.consume(sn);
+                            self.perc[i] = r.consume(sn);
                         });
                 }
             }
 
-            if let Some((perc, norm_col)) = self.cols.push_back((self.perc, norm_col)) {
-                self.perc = perc;
+            if let Some((harm, norm_col)) = self.cols.push_back((self.harm, norm_col)) {
+                self.harm = harm;
                 out = Some(norm_col);
             }
 
@@ -180,7 +180,7 @@ impl Stft {
     /// Computes hpss for one column of median filtered harmonics, and a vector of the last
     /// elements of the corresponding median filtered percussives
     pub fn hpss_one(&self, x: &mut [f64], power: i32) {
-        let mask = Self::softmask_one(&self.perc, &self.harm, power);
+        let mask = Self::softmask_one(&self.harm, &self.perc, power);
         for (h, m) in x.iter_mut().zip(mask) {
             *h *= m
         }
