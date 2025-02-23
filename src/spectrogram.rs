@@ -75,7 +75,10 @@ impl Stft {
     /// computes it, then computes the median filtered harmonic and the newest elements of the
     /// median filtered percussives. Returns the newest median filtered harmonic column vector and a vector
     /// consisting of the newest element of the median filtered percussives
-    pub fn process_samples(&mut self, samples: &[f64]) -> Option<Vec<f64>> {
+    pub fn process_samples(&mut self, samples: &mut [f64]) -> Option<Vec<f64>> {
+        for s in samples.iter_mut() {
+            *s *= 1000.0 / i32::MAX as f64;
+        }
         if samples[0] > self.max_sample {
             self.max_sample = samples[0];
         }

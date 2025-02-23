@@ -171,7 +171,7 @@ fn generate(args: GenerateArgs) -> Result<(), Box<dyn Error>> {
     let mut maxes = Vec::new();
     for s in samples {
         let sample = s?;
-        if let Some(mut col) = stft.process_samples(&[sample as f64]) {
+        if let Some(mut col) = stft.process_samples(&mut [sample as f64]) {
             assert_eq!(col.len(), 4097);
             i += 1;
             assert!(i <= width);
@@ -240,7 +240,7 @@ fn infer(args: InferArgs) -> Result<(), Box<dyn Error>> {
     let mut maxes = Vec::new();
     for s in samples {
         let sample = s?;
-        if let Some(mut col) = stft.process_samples(&[sample as f64]) {
+        if let Some(mut col) = stft.process_samples(&mut [sample as f64]) {
             assert_eq!(col.len(), 4097);
             f += 1;
 
@@ -320,7 +320,7 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
     let mut maxes = Vec::new();
     for s in samples {
         let sample = s?;
-        if let Some(mut col) = stft.process_samples(&[sample as f64]) {
+        if let Some(mut col) = stft.process_samples(&mut [sample as f64]) {
             assert_eq!(col.len(), 4097);
 
             stft.hpss_one(&mut col, args.power);
@@ -370,7 +370,7 @@ fn test_mlp(args: TestMlpArgs) -> Result<(), Box<dyn Error>> {
     let mut maxes = Vec::new();
     for s in samples {
         let sample = s?;
-        if let Some(mut col) = stft.process_samples(&[sample as f64]) {
+        if let Some(mut col) = stft.process_samples(&mut [sample as f64]) {
             assert_eq!(col.len(), 4097);
             if let Some(csv_result) = csv.next() {
                 //stft.hpss_one(&mut col, args.power);
