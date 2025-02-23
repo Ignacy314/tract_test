@@ -89,16 +89,29 @@ impl Stft {
             self.compute_into_outdata();
 
             let mut filter = Filter::new(self.filter_width);
-            let mut norm_col = Vec::new();
+            let norm_col = self.outdata.iter().map(|s| s.norm()).collect::<Vec<f64>>();
+            let relfect = norm_col
+                .iter()
+                .take(self.filter_width / 2)
+                .chain(norm_col.iter())
+                .chain(norm_col.iter().rev().take(self.filter_width / 2));
+
+            for (i, sn) in relfect.enumerate() {
+                let f = filter.consume(*sn);
+                if i >= self.filter_width {
+                    self.perc[i - self.filter_width] = f;
+                }
+            }
+
             self.row_filters
                 .iter_mut()
-                .zip(self.outdata.iter())
+                .zip(norm_col.iter())
                 .enumerate()
-                .for_each(|(i, (r, &s))| {
-                    let sn = s.norm();
-                    self.perc[i] = filter.consume(sn);
+                .for_each(|(i, (r, &sn))| {
+                    //let sn = s.norm();
+                    //self.perc[i] = filter.consume(sn);
                     self.harm[i] = r.consume(sn);
-                    norm_col.push(sn);
+                    //norm_col.push(sn);
                     if sn > self.max_after_fft {
                         self.max_after_fft = sn;
                     }
