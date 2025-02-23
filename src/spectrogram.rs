@@ -80,7 +80,10 @@ impl Stft {
     /// computes it, then computes the median filtered harmonic and the newest elements of the
     /// median filtered percussives. Returns the newest median filtered harmonic column vector and a vector
     /// consisting of the newest element of the median filtered percussives
-    pub fn process_samples(&mut self, samples: &[f64]) -> Option<Vec<f64>> {
+    pub fn process_samples(&mut self, samples: &mut [f64]) -> Option<Vec<f64>> {
+        for s in samples.iter_mut() {
+            *s /= i32::MAX as f64;
+        }
         self.sample_ring.push_many_back(samples);
 
         let mut out = None;
