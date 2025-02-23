@@ -345,7 +345,7 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
 fn test_mlp(args: TestMlpArgs) -> Result<(), Box<dyn Error>> {
     let mlp = tract_onnx::onnx().model_for_path(args.mlp)?;
     let mlp = mlp.with_input_fact(0, f64::fact([4097]).into())?;
-    //let mlp = mlp.into_optimized()?;
+    let mlp = mlp.into_optimized()?;
     let mlp = mlp.into_runnable()?;
 
     let mut reader = hound::WavReader::open(args.input)?;
@@ -387,6 +387,8 @@ fn test_mlp(args: TestMlpArgs) -> Result<(), Box<dyn Error>> {
                     .to_i64()?;
 
                 let record: i64 = csv_result?;
+
+                println!("{record} | {mlp_class}");
 
                 let diff = (mlp_class - record).abs();
                 if diff == 0 {
