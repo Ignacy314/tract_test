@@ -180,7 +180,7 @@ impl Stft {
     /// Computes hpss for one column of median filtered harmonics, and a vector of the last
     /// elements of the corresponding median filtered percussives
     pub fn hpss_one(&self, x: &mut [f64], power: i32) {
-        let mask = Self::softmask_one(&self.harm, &self.perc, power);
+        let mask = Self::softmask_one(&self.perc, &self.harm, power);
         for (h, m) in x.iter_mut().zip(mask) {
             *h *= m
         }
