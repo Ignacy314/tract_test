@@ -7,6 +7,7 @@ use std::time::Instant;
 
 use circular_buffer::CircularBuffer;
 use clap::{Parser, Subcommand};
+use image::EncodableLayout;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
 use rand::rng;
@@ -55,6 +56,12 @@ struct GenerateArgs {
     /// Amplitude to dB reference value
     #[arg(short, long)]
     ref_db: f64,
+    #[arg(short, long)]
+    hpss: bool,
+    #[arg(short, long)]
+    amp_to_db: bool,
+    #[arg(short, long)]
+    min_max_scale: bool,
 }
 
 #[derive(clap::Parser)]
@@ -132,8 +139,7 @@ fn amplitude_to_db(x_vec: &mut [f64], ref_db: f64) {
     }
     let ref_db = if ref_db == 0.0 {
         let mut x_max = f64::MIN;
-        for x in x_vec.iter_mut() {
-            //*x *= *x;
+        for x in x_vec.iter() {
             if *x > x_max {
                 x_max = *x;
             }
@@ -201,9 +207,15 @@ fn generate(args: GenerateArgs) -> Result<(), Box<dyn Error>> {
             i += 1;
             assert!(i <= width);
 
-            stft.hpss_one(&mut col, args.power);
-            amplitude_to_db(&mut col, args.ref_db);
-            min_max_scale(&mut col);
+            if args.hpss {
+                stft.hpss_one(&mut col, args.power);
+            }
+            if args.amp_to_db {
+                amplitude_to_db(&mut col, args.ref_db);
+            }
+            if args.min_max_scale {
+                min_max_scale(&mut col);
+            }
 
             for s in &col[..4096] {
                 write!(w, "{s},")?;
@@ -360,9 +372,14 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
             amplitude_to_db(&mut col, args.ref_db);
             min_max_scale(&mut col);
 
+            let mut col_img = image::GrayImage::new(1, HEIGHT);
+
             for (y, s) in col.iter().enumerate() {
-                image.get_pixel_mut(x, y as u32).0 = [((s * 255.0).round() as u8)];
+                image.get_pixel_mut(x, HEIGHT - y as u32).0 = [((s * 255.0).round() as u8)];
+                col_img.get_pixel_mut(1, HEIGHT - y as u32).0 = [((s * 255.0).round() as u8)];
             }
+            let jpg = turbojpeg::compress_image(&col_img, 95, turbojpeg::Subsamp::None)?;
+            let jpg_data = jpg.as_bytes();
             x += 1;
             pb.inc(1);
         }
@@ -398,7 +415,6 @@ fn test_mlp(args: TestMlpArgs) -> Result<(), Box<dyn Error>> {
 
     let mut csv = csv::Reader::from_path(args.drone_csv)?;
     let mut csv = csv.deserialize();
-    //let mut csv = csv.deserialize().skip((FILTER_WIDTH + 1) / 2);
 
     let n = (reader.duration() - 4096) / 4096;
     let pb = ProgressBar::new(u64::from(n));
