@@ -63,7 +63,7 @@ struct GenerateArgs {
     #[arg(short, long)]
     min_max_scale: bool,
     #[arg(short, long)]
-    skip: Option<u32>,
+    skip: Option<usize>,
 }
 
 #[derive(clap::Parser)]
