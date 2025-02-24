@@ -159,7 +159,7 @@ fn amplitude_to_db(x_vec: &mut [f64], ref_db: f64) {
         }
     }
     for x in x_vec.iter_mut() {
-        *x = x.max(x_max - 80.0);
+        *x = x.max(-80.0);
     }
 }
 
