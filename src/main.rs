@@ -160,7 +160,7 @@ fn amplitude_to_db(x_vec: &mut [f64], ref_db: f64) {
         //    x_max = *x;
         //}
     }
-    let x_max = x_vec.iter().max_by(|a, b| a.total_cmp(b)).unwrap_or(&0.0);
+    let x_max = *x_vec.iter().max_by(|a, b| a.total_cmp(b)).unwrap_or(&0.0);
     for x in x_vec.iter_mut() {
         *x = x.max(x_max - 80.0);
     }
