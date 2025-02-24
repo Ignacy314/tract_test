@@ -62,6 +62,8 @@ struct GenerateArgs {
     amp_to_db: bool,
     #[arg(short, long)]
     min_max_scale: bool,
+    #[arg(short, long)]
+    skip: Option<u32>,
 }
 
 #[derive(clap::Parser)]
@@ -197,9 +199,11 @@ fn generate(args: GenerateArgs) -> Result<(), Box<dyn Error>> {
         .progress_chars("##-"),
     );
 
+    let skip = if let Some(skip) = args.skip { skip } else { 1 };
+
     let mut i = 0;
     let mut stft = Stft::new(N_FFT, HOP_LENGTH, args.width);
-    let samples = reader.samples::<i32>();
+    let samples = reader.samples::<i32>().step_by(skip);
     for s in samples {
         let sample = s?;
         if let Some(mut col) = stft.process_samples(&mut [sample as f64]) {
