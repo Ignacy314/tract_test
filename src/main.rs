@@ -16,6 +16,7 @@ use tract_onnx::prelude::*;
 
 //use self::spectrogram::FILTER_WIDTH;
 use self::spectrogram::{Stft, HOP_LENGTH, N_FFT};
+use self::tract_num_traits::float::TotalOrder;
 
 mod spectrogram;
 
@@ -137,7 +138,7 @@ struct TestMlpArgs {
 
 fn amplitude_to_db(x_vec: &mut [f64], ref_db: f64) {
     let ref_db = if ref_db == 0.0 {
-        *x_vec.iter().max().unwrap_or(&0.0)
+        *x_vec.iter().max_by(|a, b| a.total_cmp(b)).unwrap_or(&0.0)
         //let mut x_max = f64::MIN;
         //for x in x_vec.iter() {
         //    if *x > x_max {
@@ -159,7 +160,7 @@ fn amplitude_to_db(x_vec: &mut [f64], ref_db: f64) {
         //    x_max = *x;
         //}
     }
-    let x_max = x_vec.iter().max().unwrap_or(&0.0);
+    let x_max = x_vec.iter().max_by(|a, b| a.total_cmp(b)).unwrap_or(&0.0);
     for x in x_vec.iter_mut() {
         *x = x.max(x_max - 80.0);
     }
