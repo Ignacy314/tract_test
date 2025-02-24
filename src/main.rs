@@ -212,7 +212,7 @@ fn generate(args: GenerateArgs) -> Result<(), Box<dyn Error>> {
         if let Some(mut col) = stft.process_samples(&mut [sample as f64]) {
             assert_eq!(col.len(), 4097);
             i += 1;
-            //assert!(i <= width);
+            assert!(i <= width);
 
             if args.hpss {
                 stft.hpss_one(&mut col, args.power);
