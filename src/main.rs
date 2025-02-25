@@ -532,7 +532,7 @@ fn test_resnet(args: TestResnetArgs) -> Result<(), Box<dyn Error>> {
         let image = image.into_luma8();
         let resnet_input: Tensor = {
             tract_ndarray::Array4::from_shape_fn((1, 224, 224, 3), |(_, x, y, _)| {
-                image.get_pixel(x as u32, 224 - y as u32).0[0] as f32 / 255.0
+                image.get_pixel(x as u32, 223 - y as u32).0[0] as f32 / 255.0
             })
             .into()
         };
