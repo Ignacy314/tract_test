@@ -1,5 +1,6 @@
 use std::error::Error;
 use std::fmt::Display;
+use std::fs;
 use std::fs::File;
 use std::io::BufWriter;
 use std::io::Write;
@@ -7,16 +8,15 @@ use std::time::Instant;
 
 use circular_buffer::CircularBuffer;
 use clap::{Parser, Subcommand};
-use image::EncodableLayout;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
 use rand::rng;
+use rand::seq::IteratorRandom;
 use rand::Rng;
 use tract_onnx::prelude::*;
 
 //use self::spectrogram::FILTER_WIDTH;
 use self::spectrogram::{Stft, HOP_LENGTH, N_FFT};
-use self::tract_num_traits::float::TotalOrder;
 
 mod spectrogram;
 
@@ -38,6 +38,8 @@ enum Commands {
     ImgGen(ImgGenArgs),
     /// Test MLP accuracy
     TestMlp(TestMlpArgs),
+    /// Test Resnet accuracy
+    TestResnet(TestResnetArgs),
 }
 
 #[derive(clap::Args)]
@@ -48,21 +50,21 @@ struct GenerateArgs {
     /// Path to input file
     #[arg(short, long)]
     input: String,
-    /// Width of the median filter
-    #[arg(short, long)]
-    width: usize,
-    /// Power of the softmask
-    #[arg(short, long)]
-    power: i32,
-    /// Amplitude to dB reference value
-    #[arg(short = 'b', long)]
-    ref_db: f64,
-    #[arg(short, long)]
-    hpss: bool,
-    #[arg(short, long)]
-    amp_to_db: bool,
-    #[arg(short, long)]
-    min_max_scale: bool,
+    ///// Width of the median filter
+    //#[arg(short, long)]
+    //width: usize,
+    ///// Power of the softmask
+    //#[arg(short, long)]
+    //power: i32,
+    ///// Amplitude to dB reference value
+    //#[arg(short = 'b', long)]
+    //ref_db: f64,
+    //#[arg(short, long)]
+    //hpss: bool,
+    //#[arg(short, long)]
+    //amp_to_db: bool,
+    //#[arg(short, long)]
+    //min_max_scale: bool,
     #[arg(short, long)]
     skip: Option<usize>,
 }
@@ -84,15 +86,15 @@ struct InferArgs {
     /// Path to the ResNet onnx model
     #[arg(short, long)]
     resnet: Option<String>,
-    /// Width of the median filter
-    #[arg(short, long)]
-    width: usize,
-    /// Power of the softmask
-    #[arg(short, long)]
-    power: i32,
-    /// Amplitude to dB reference value
-    #[arg(short = 'b', long)]
-    ref_db: f64,
+    ///// Width of the median filter
+    //#[arg(short, long)]
+    //width: usize,
+    ///// Power of the softmask
+    //#[arg(short, long)]
+    //power: i32,
+    ///// Amplitude to dB reference value
+    //#[arg(short = 'b', long)]
+    //ref_db: f64,
 }
 
 #[derive(clap::Args)]
@@ -103,15 +105,15 @@ struct ImgGenArgs {
     /// Path to output file
     #[arg(short, long)]
     output: String,
-    /// Width of the median filter
-    #[arg(short, long)]
-    width: usize,
-    /// Power of the softmask
-    #[arg(short, long)]
-    power: i32,
-    /// Amplitude to dB reference value
-    #[arg(short = 'b', long)]
-    ref_db: f64,
+    ///// Width of the median filter
+    //#[arg(short, long)]
+    //width: usize,
+    ///// Power of the softmask
+    //#[arg(short, long)]
+    //power: i32,
+    ///// Amplitude to dB reference value
+    //#[arg(short = 'b', long)]
+    //ref_db: f64,
 }
 
 #[derive(clap::Args)]
@@ -125,23 +127,40 @@ struct TestMlpArgs {
     /// Path to the drone distance class csv corresponding to the wav file
     #[arg(short, long)]
     drone_csv: String,
-    /// Width of the median filter
-    #[arg(short, long)]
-    width: usize,
-    /// Power of the softmask
-    #[arg(short, long)]
-    power: i32,
-    /// Amplitude to dB reference value
-    #[arg(short = 'b', long)]
-    ref_db: f64,
+    ///// Width of the median filter
+    //#[arg(short, long)]
+    //width: usize,
+    ///// Power of the softmask
+    //#[arg(short, long)]
+    //power: i32,
+    ///// Amplitude to dB reference value
+    //#[arg(short = 'b', long)]
+    //ref_db: f64,
 }
 
-fn amplitude_to_db(x_vec: &mut [f64], ref_db: f64) {
-    let ref_db = if ref_db == 0.0 {
-        *x_vec.iter().max_by(|a, b| a.total_cmp(b)).unwrap_or(&0.0)
-    } else {
-        ref_db
-    };
+#[derive(clap::Args)]
+struct TestResnetArgs {
+    /// Path to input dir
+    #[arg(short, long)]
+    input: String,
+    /// Wether input dir contains background
+    #[arg(short, long)]
+    background: bool,
+    /// Path to the ResNet onnx model
+    #[arg(short, long)]
+    resnet: String,
+    /// Number of files to test on
+    #[arg(short, long)]
+    n: usize,
+}
+
+fn amplitude_to_db(x_vec: &mut [f64]) {
+    //let ref_db = if ref_db == 0.0 {
+    //    *x_vec.iter().max_by(|a, b| a.total_cmp(b)).unwrap_or(&0.0)
+    //} else {
+    //    ref_db
+    //};
+    let ref_db = *x_vec.iter().max_by(|a, b| a.total_cmp(b)).unwrap_or(&0.0);
     let sub = 10.0 * (ref_db * ref_db).max(1e-10).log10();
     for x in x_vec.iter_mut() {
         *x = 10.0 * (*x * *x).max(1e-10).log10() - sub;
@@ -183,10 +202,10 @@ fn generate(args: GenerateArgs) -> Result<(), Box<dyn Error>> {
         .progress_chars("##-"),
     );
 
-    let skip = if let Some(skip) = args.skip { skip } else { 1 };
+    let skip = args.skip.unwrap_or(1);
 
     let mut i = 0;
-    let mut stft = Stft::new(N_FFT, HOP_LENGTH, args.width);
+    let mut stft = Stft::new(N_FFT, HOP_LENGTH);
     let samples = reader.samples::<i32>().step_by(skip);
     for s in samples {
         let sample = s?;
@@ -195,15 +214,9 @@ fn generate(args: GenerateArgs) -> Result<(), Box<dyn Error>> {
             i += 1;
             assert!(i <= width);
 
-            if args.hpss {
-                stft.hpss_one(&mut col, args.power);
-            }
-            if args.amp_to_db {
-                amplitude_to_db(&mut col, args.ref_db);
-            }
-            if args.min_max_scale {
-                min_max_scale(&mut col);
-            }
+            stft.hpss_one(&mut col);
+            amplitude_to_db(&mut col);
+            min_max_scale(&mut col);
 
             for s in &col[..4096] {
                 write!(w, "{s},")?;
@@ -212,8 +225,8 @@ fn generate(args: GenerateArgs) -> Result<(), Box<dyn Error>> {
             pb.inc(1);
         }
     }
-    for mut col in stft.process_tail(args.power) {
-        amplitude_to_db(&mut col, args.ref_db);
+    for mut col in stft.process_tail() {
+        amplitude_to_db(&mut col);
         min_max_scale(&mut col);
         for s in &col[..4096] {
             write!(w, "{s},")?;
@@ -268,7 +281,7 @@ fn infer(args: InferArgs) -> Result<(), Box<dyn Error>> {
         reader.seek(args.start_sample)?;
     }
 
-    let mut stft = Stft::new(N_FFT, HOP_LENGTH, args.width);
+    let mut stft = Stft::new(N_FFT, HOP_LENGTH);
     let samples = reader.samples::<i32>();
     let mut f = 0;
     for s in samples {
@@ -276,8 +289,8 @@ fn infer(args: InferArgs) -> Result<(), Box<dyn Error>> {
         if let Some(mut col) = stft.process_samples(&mut [sample as f64]) {
             assert_eq!(col.len(), 4097);
 
-            stft.hpss_one(&mut col, args.power);
-            amplitude_to_db(&mut col, args.ref_db);
+            stft.hpss_one(&mut col);
+            amplitude_to_db(&mut col);
             min_max_scale(&mut col);
 
             if let Some(resnet) = resnet.as_ref() {
@@ -289,7 +302,8 @@ fn infer(args: InferArgs) -> Result<(), Box<dyn Error>> {
 
                 if buffer.is_full() {
                     f += 1;
-                    let start_row = rng.random_range(1500..2000);
+
+                    let start_row = rng.random_range(1000..2500);
                     let resnet_input: Tensor = {
                         tract_ndarray::Array4::from_shape_fn((1, 224, 224, 3), |(_, x, y, _)| {
                             buffer.get(x).unwrap()[y + start_row]
@@ -349,7 +363,7 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
     let mut image = image::GrayImage::new(width, HEIGHT);
     let mut x: u32 = 0;
 
-    let mut stft = Stft::new(N_FFT, HOP_LENGTH, args.width);
+    let mut stft = Stft::new(N_FFT, HOP_LENGTH);
     let samples = reader.samples::<i32>();
     for s in samples {
         let sample = s?;
@@ -357,8 +371,8 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
             assert_eq!(col.len(), 4097);
             assert!(x < width);
 
-            stft.hpss_one(&mut col, args.power);
-            amplitude_to_db(&mut col, args.ref_db);
+            stft.hpss_one(&mut col);
+            amplitude_to_db(&mut col);
             min_max_scale(&mut col);
 
             let mut col_img = image::GrayImage::new(1, HEIGHT);
@@ -367,18 +381,18 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
                 image.get_pixel_mut(x, HEIGHT - y as u32).0 = [((s * 255.0).round() as u8)];
                 col_img.get_pixel_mut(1, HEIGHT - y as u32).0 = [((s * 255.0).round() as u8)];
             }
-            let jpg = turbojpeg::compress_image(&col_img, 95, turbojpeg::Subsamp::None)?;
-            let jpg_data = jpg.as_bytes();
+            //let jpg = turbojpeg::compress_image(&col_img, 95, turbojpeg::Subsamp::None)?;
+            //let jpg_data = jpg.as_bytes();
             x += 1;
             pb.inc(1);
         }
     }
-    for mut col in stft.process_tail(args.power) {
+    for mut col in stft.process_tail() {
         assert_eq!(col.len(), 4097);
         assert!(x < width);
 
-        stft.hpss_one(&mut col, args.power);
-        amplitude_to_db(&mut col, args.ref_db);
+        stft.hpss_one(&mut col);
+        amplitude_to_db(&mut col);
         min_max_scale(&mut col);
 
         if x < width {
@@ -418,15 +432,15 @@ fn test_mlp(args: TestMlpArgs) -> Result<(), Box<dyn Error>> {
     let mut sum_diff = 0i64;
     let mut count_ok = 0u32;
 
-    let mut stft = Stft::new(N_FFT, HOP_LENGTH, args.width);
+    let mut stft = Stft::new(N_FFT, HOP_LENGTH);
     let samples = reader.samples::<i32>();
     for s in samples {
         let sample = s?;
         if let Some(mut col) = stft.process_samples(&mut [sample as f64]) {
             assert_eq!(col.len(), 4097);
             if let Some(csv_result) = csv.next() {
-                stft.hpss_one(&mut col, args.power);
-                amplitude_to_db(&mut col, args.ref_db);
+                stft.hpss_one(&mut col);
+                amplitude_to_db(&mut col);
                 min_max_scale(&mut col);
 
                 let mlp_input: Tensor = tract_ndarray::Array1::from_vec(col).into();
@@ -454,9 +468,9 @@ fn test_mlp(args: TestMlpArgs) -> Result<(), Box<dyn Error>> {
             }
         }
     }
-    for mut col in stft.process_tail(args.power) {
+    for mut col in stft.process_tail() {
         if let Some(csv_result) = csv.next() {
-            amplitude_to_db(&mut col, args.ref_db);
+            amplitude_to_db(&mut col);
             min_max_scale(&mut col);
 
             let mlp_input: Tensor = tract_ndarray::Array1::from_vec(col).into();
@@ -490,6 +504,65 @@ fn test_mlp(args: TestMlpArgs) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+fn test_resnet(args: TestResnetArgs) -> Result<(), Box<dyn Error>> {
+    let resnet = tract_onnx::onnx().model_for_path(args.resnet)?;
+    let resnet = resnet.with_input_fact(0, f32::fact([1, 224, 224, 3]).into())?;
+    let resnet = resnet.into_optimized()?;
+    let resnet = resnet.into_runnable()?;
+
+    let paths = fs::read_dir(args.input.clone())?;
+    let paths = paths.choose_multiple(&mut rng(), args.n);
+
+    let n = args.n as u32;
+    let pb = ProgressBar::new(u64::from(n));
+    let t = f64::from(n).log10().ceil() as u64;
+    pb.set_style(
+        ProgressStyle::with_template(&format!(
+        "[{{elapsed_precise}}] {{bar:40.cyan/blue}} {{pos:>{t}}}/{{len:{t}}} ({{percent}}%) {{msg}}"
+    ))
+        .unwrap()
+        .progress_chars("##-"),
+    );
+
+    let mut ones = 0;
+
+    for path in paths {
+        let path = path?;
+        let image = image::open(path.path())?;
+        let image = image.into_luma8();
+        let resnet_input: Tensor = {
+            tract_ndarray::Array4::from_shape_fn((1, 224, 224, 3), |(_, x, y, _)| {
+                image.get_pixel(x as u32, y as u32).0[0] as f32 / 255.0
+            })
+            .into()
+        };
+        let resnet_result = resnet.run(tvec!(resnet_input.into()))?;
+
+        let resnet_val = &resnet_result[0].to_array_view::<f32>()?;
+        let resnet_best = resnet_val
+            .iter()
+            .zip(0..)
+            .max_by(|a, b| a.0.total_cmp(b.0))
+            .unwrap();
+
+        if resnet_best.1 == 1 {
+            ones += 1;
+        }
+
+        pb.inc(1);
+    }
+
+    let acc = if args.background {
+        (n - ones) as f32 / n as f32
+    } else {
+        ones as f32 / n as f32
+    };
+
+    pb.finish_with_message(format!("Acc: {acc}"));
+
+    Ok(())
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let cli = Cli::parse();
 
@@ -498,6 +571,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         Commands::Infer(args) => infer(args)?,
         Commands::ImgGen(args) => img_gen(args)?,
         Commands::TestMlp(args) => test_mlp(args)?,
+        Commands::TestResnet(args) => test_resnet(args)?
     }
     Ok(())
 }

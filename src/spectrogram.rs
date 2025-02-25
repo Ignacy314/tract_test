@@ -47,7 +47,7 @@ pub struct Stft {
 }
 
 impl Stft {
-    pub fn new(n_fft: usize, hop_length: usize, _filter_width: usize) -> Self {
+    pub fn new(n_fft: usize, hop_length: usize) -> Self {
         let mut planner = RealFftPlanner::new();
         let forward = planner.plan_fft_forward(n_fft);
         let indata = forward.make_input_vec();
@@ -147,7 +147,7 @@ impl Stft {
         out
     }
 
-    pub fn process_tail(&mut self, power: i32) -> Vec<Vec<f64>> {
+    pub fn process_tail(&mut self) -> Vec<Vec<f64>> {
         let mut tail = Vec::new();
         for ((perc, norm_col), (_, rev_col)) in self.cols.iter().zip(self.cols.iter().rev()) {
             self.row_filters
@@ -159,7 +159,7 @@ impl Stft {
                 });
             self.perc = *perc;
             let mut norm_col = norm_col.clone();
-            self.hpss_one(norm_col.as_mut(), power);
+            self.hpss_one(norm_col.as_mut());
             tail.push(norm_col);
         }
         tail
@@ -182,8 +182,8 @@ impl Stft {
 
     /// Computes hpss for one column of median filtered harmonics, and a vector of the last
     /// elements of the corresponding median filtered percussives
-    pub fn hpss_one(&self, x: &mut [f64], power: i32) {
-        let mask = Self::softmask_one(&self.harm, &self.perc, power);
+    pub fn hpss_one(&self, x: &mut [f64]) {
+        let mask = Self::softmask_one(&self.harm, &self.perc, 2);
         for (h, m) in x.iter_mut().zip(mask) {
             *h *= m
         }
