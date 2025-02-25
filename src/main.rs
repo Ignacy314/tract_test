@@ -289,7 +289,7 @@ fn infer(args: InferArgs) -> Result<(), Box<dyn Error>> {
 
                 if buffer.is_full() {
                     f += 1;
-                    let start_row = rng.random_range(1800..2500);
+                    let start_row = rng.random_range(0..2000);
                     let resnet_input: Tensor = {
                         tract_ndarray::Array4::from_shape_fn((1, 224, 224, 3), |(_, x, y, _)| {
                             buffer.get(x).unwrap()[y + start_row]
