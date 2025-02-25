@@ -275,7 +275,6 @@ fn infer(args: InferArgs) -> Result<(), Box<dyn Error>> {
         let sample = s?;
         if let Some(mut col) = stft.process_samples(&mut [sample as f64]) {
             assert_eq!(col.len(), 4097);
-            f += 1;
 
             stft.hpss_one(&mut col, args.power);
             amplitude_to_db(&mut col, args.ref_db);
@@ -289,6 +288,7 @@ fn infer(args: InferArgs) -> Result<(), Box<dyn Error>> {
                 buffer.push_back(image_col);
 
                 if buffer.is_full() {
+                    f += 1;
                     let start_row = rng.random_range(1800..2500);
                     let resnet_input: Tensor = {
                         tract_ndarray::Array4::from_shape_fn((1, 224, 224, 3), |(_, x, y, _)| {
@@ -319,6 +319,7 @@ fn infer(args: InferArgs) -> Result<(), Box<dyn Error>> {
                     );
                 }
             } else {
+                f += 1;
                 let mlp_input: Tensor = tract_ndarray::Array1::from_vec(col).into();
                 let mlp_result = mlp.run(tvec!(mlp_input.into()))?;
                 println!("{f:6}: {:2}", mlp_result[0].to_array_view::<TDim>()?.get(0).unwrap(),);
