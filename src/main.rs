@@ -55,7 +55,7 @@ struct GenerateArgs {
     #[arg(short, long)]
     power: i32,
     /// Amplitude to dB reference value
-    #[arg(short, long)]
+    #[arg(short = 'b', long)]
     ref_db: f64,
     #[arg(short, long)]
     hpss: bool,
@@ -91,7 +91,7 @@ struct InferArgs {
     #[arg(short, long)]
     power: i32,
     /// Amplitude to dB reference value
-    #[arg(short, long)]
+    #[arg(short = 'b', long)]
     ref_db: f64,
 }
 
@@ -110,7 +110,7 @@ struct ImgGenArgs {
     #[arg(short, long)]
     power: i32,
     /// Amplitude to dB reference value
-    #[arg(short, long)]
+    #[arg(short = 'b', long)]
     ref_db: f64,
 }
 
@@ -132,7 +132,7 @@ struct TestMlpArgs {
     #[arg(short, long)]
     power: i32,
     /// Amplitude to dB reference value
-    #[arg(short, long)]
+    #[arg(short = 'b', long)]
     ref_db: f64,
 }
 
