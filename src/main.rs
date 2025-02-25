@@ -139,26 +139,12 @@ struct TestMlpArgs {
 fn amplitude_to_db(x_vec: &mut [f64], ref_db: f64) {
     let ref_db = if ref_db == 0.0 {
         *x_vec.iter().max_by(|a, b| a.total_cmp(b)).unwrap_or(&0.0)
-        //let mut x_max = f64::MIN;
-        //for x in x_vec.iter() {
-        //    if *x > x_max {
-        //        x_max = *x;
-        //    }
-        //}
-        //x_max
     } else {
         ref_db
     };
-    //for x in x_vec.iter_mut() {
-    //    *x *= *x;
-    //}
-    let sub = 10.0 * ref_db.powi(2).max(1e-10).log10();
-    //let mut x_max = f64::MIN;
+    let sub = 10.0 * (ref_db * ref_db).max(1e-10).log10();
     for x in x_vec.iter_mut() {
-        *x = 10.0 * x.powi(2).max(1e-10).log10() - sub;
-        //if *x > x_max {
-        //    x_max = *x;
-        //}
+        *x = 10.0 * (x * x).max(1e-10).log10() - sub;
     }
     let x_max = *x_vec.iter().max_by(|a, b| a.total_cmp(b)).unwrap_or(&0.0);
     for x in x_vec.iter_mut() {
@@ -180,11 +166,6 @@ fn min_max_scale(x_vec: &mut [f64]) {
     for x in x_vec {
         *x = (*x - x_min) / (x_max - x_min);
     }
-    //let x_std = x_vec
-    //    .iter()
-    //    .map(|x| (x - x_min) / (x_max - x_min))
-    //    .collect::<Vec<_>>();
-    //x_std
 }
 
 fn generate(args: GenerateArgs) -> Result<(), Box<dyn Error>> {
@@ -276,12 +257,12 @@ fn infer(args: InferArgs) -> Result<(), Box<dyn Error>> {
     let mut reader = hound::WavReader::open(args.input)?;
 
     if resnet.is_some() {
-        if args.start_sample < 224 {
+        if args.start_sample < 224 * 4096 {
             return Err(Box::new(InferError(
-                "When using resnet need to start at least at sample 224".to_string(),
+                "When using resnet need to start at least at sample 917504".to_string(),
             )));
         } else {
-            reader.seek(args.start_sample - 224)?;
+            reader.seek(args.start_sample - 224 * 4096)?;
         }
     } else {
         reader.seek(args.start_sample)?;
