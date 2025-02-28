@@ -125,9 +125,9 @@ struct ImgGenArgs {
     /// Prefix for split file name
     #[arg(short, long)]
     prefix_for_split: Option<String>,
-    /// Date
-    #[arg(short, long)]
-    date: Option<String>,
+    ///// Date
+    //#[arg(short, long)]
+    //date: Option<String>,
 }
 
 #[derive(clap::Args)]
@@ -404,9 +404,9 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
                         };
 
                         image.save(format!(
-                            "{}/{}/{}/{}_{j}_{i}.png",
+                            "{}/{}/{}_{j}_{i}.png",
                             dir,
-                            args.date.as_ref().unwrap(),
+                            //args.date.as_ref().unwrap(),
                             test_or_train,
                             args.prefix_for_split.as_ref().unwrap()
                         ))?;
