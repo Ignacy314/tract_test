@@ -107,7 +107,7 @@ struct ImgGenArgs {
     input: String,
     /// Path to output file
     #[arg(short, long)]
-    output: String,
+    output: Option<String>,
     ///// Width of the median filter
     //#[arg(short, long)]
     //width: usize,
@@ -121,7 +121,7 @@ struct ImgGenArgs {
     #[arg(short, long)]
     bg_pattern: String,
     /// Output directory of cut images
-    #[arg(short, long)]
+    #[arg(short, long, requires("prefix_for_split"))]
     split_output_dir: Option<String>,
     /// Prefix for split file name
     #[arg(short, long)]
@@ -367,22 +367,20 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
     for s in samples {
         let sample = s?;
         if let Some(mut col) = stft.process_samples(&mut [sample as f64]) {
-            //assert_eq!(col.len(), 4097);
-            //assert!(x < n);
-
             stft.hpss_one(&mut col);
             let col_max = col.iter().max_by(|a, b| a.total_cmp(b)).unwrap();
             stft.set_ref_db(*col_max);
             amplitude_to_db(&mut col, stft.get_ref_db());
             min_max_scale(&mut col);
-            //softmax(&mut col);
 
             //let mut col_img = image::GrayImage::new(1, HEIGHT);
 
-            for (y, s) in col.iter().enumerate() {
-                image.get_pixel_mut(col_count, HEIGHT - 1 - y as u32).0 =
-                    [((s * 255.0).round() as u8)];
-                //col_img.get_pixel_mut(1, HEIGHT - 1 - y as u32).0 = [((s * 255.0).round() as u8)];
+            if args.output.is_some() {
+                for (y, s) in col.iter().enumerate() {
+                    image.get_pixel_mut(col_count, HEIGHT - 1 - y as u32).0 =
+                        [((s * 255.0).round() as u8)];
+                    //col_img.get_pixel_mut(1, HEIGHT - 1 - y as u32).0 = [((s * 255.0).round() as u8)];
+                }
             }
             //let jpeg_buf = Cursor::new(Vec::new());
             //let mut jpeg_writer = BufWriter::new(jpeg_buf);
@@ -407,22 +405,6 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
                         }
 
                         images.push(image);
-
-                        //if random_range(0.0..=1.0) <= 0.2 {
-                        //    image.save(format!(
-                        //        "{}/test/{}_{j}_{test_i}.png",
-                        //        dir,
-                        //        args.prefix_for_split.as_ref().unwrap()
-                        //    ))?;
-                        //    test_i += 1;
-                        //} else {
-                        //    image.save(format!(
-                        //        "{}/train/{}_{j}_{train_i}.png",
-                        //        dir,
-                        //        args.prefix_for_split.as_ref().unwrap()
-                        //    ))?;
-                        //    train_i += 1;
-                        //}
 
                         row_count += random_range(56..112);
                     }
@@ -460,23 +442,70 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
         }
     }
     for mut col in stft.process_tail() {
-        //assert_eq!(col.len(), 4097);
-        //assert!(x < n);
-
         let col_max = col.iter().max_by(|a, b| a.total_cmp(b)).unwrap();
         stft.set_ref_db(*col_max);
         amplitude_to_db(&mut col, stft.get_ref_db());
         min_max_scale(&mut col);
-        //softmax(&mut col);
 
         for (y, s) in col.iter().enumerate() {
             image.get_pixel_mut(col_count, HEIGHT - 1 - y as u32).0 = [((s * 255.0).round() as u8)];
         }
 
+        if let Some(dir) = args.split_output_dir.as_ref() {
+            if col_count >= next_col_split && col_count + 224 < n {
+                let mut row_count = 0;
+                let mut train_i = 0;
+                let mut test_i = 0;
+
+                let mut images = Vec::new();
+                while row_count + 224 < 2048 {
+                    let mut image = image::RgbImage::new(224, 224);
+                    for x in 0..224 {
+                        for (y, s) in col.iter().skip(row_count).take(224).enumerate() {
+                            let pixel = (s * 255.0).round() as u8;
+                            image.get_pixel_mut(x, 224 - 1 - y as u32).0 = [pixel, pixel, pixel];
+                        }
+                    }
+
+                    images.push(image);
+
+                    row_count += random_range(56..112);
+                }
+                let test_indices = (0..images.len())
+                    .choose_multiple(&mut rng, (images.len() as f32 / 5.0).round() as usize);
+                let mut test_iter = test_indices.iter().sorted();
+                let mut next_test = test_iter.next();
+                for (u, image) in images.iter().enumerate() {
+                    if let Some(test_index) = next_test {
+                        if u == *test_index {
+                            image.save(format!(
+                                "{}/test/{}_{j}_{test_i}.png",
+                                dir,
+                                args.prefix_for_split.as_ref().unwrap()
+                            ))?;
+                            test_i += 1;
+                            next_test = test_iter.next();
+                            continue;
+                        }
+                    }
+                    image.save(format!(
+                        "{}/train/{}_{j}_{train_i}.png",
+                        dir,
+                        args.prefix_for_split.as_ref().unwrap()
+                    ))?;
+                    train_i += 1;
+                }
+                next_col_split += random_range(56..112);
+                j += 1;
+            }
+        }
+
         col_count += 1;
         pb.inc(1);
     }
-    image.save(args.output)?;
+    if let Some(output) = args.output {
+        image.save(output)?;
+    }
     pb.finish_with_message(format!("Frames processed: {}", pb.position()));
     Ok(())
 }
