@@ -17,7 +17,6 @@ use tract_onnx::prelude::*;
 
 use self::spectrogram::amplitude_to_db;
 use self::spectrogram::min_max_scale;
-//use self::spectrogram::FILTER_WIDTH;
 use self::spectrogram::{Stft, HOP_LENGTH, N_FFT};
 
 mod spectrogram;
