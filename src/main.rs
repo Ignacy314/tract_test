@@ -12,6 +12,7 @@ use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
 use rand::random_range;
 use rand::rng;
+use rand::seq::IndexedRandom;
 use rand::seq::IteratorRandom;
 use rand::Rng;
 use tract_onnx::prelude::*;
@@ -19,6 +20,7 @@ use tract_onnx::prelude::*;
 use self::spectrogram::amplitude_to_db;
 use self::spectrogram::min_max_scale;
 use self::spectrogram::{Stft, HOP_LENGTH, N_FFT};
+use self::tract_itertools::Itertools;
 
 mod spectrogram;
 
@@ -358,6 +360,8 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
     let mut next_col_split = 0;
     let mut j = 0;
 
+    let mut rng = rng();
+
     let mut stft = Stft::new(N_FFT, HOP_LENGTH, pattern);
     let samples = reader.samples::<i32>();
     for s in samples {
@@ -376,7 +380,8 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
             //let mut col_img = image::GrayImage::new(1, HEIGHT);
 
             for (y, s) in col.iter().enumerate() {
-                image.get_pixel_mut(col_count, HEIGHT - 1 - y as u32).0 = [((s * 255.0).round() as u8)];
+                image.get_pixel_mut(col_count, HEIGHT - 1 - y as u32).0 =
+                    [((s * 255.0).round() as u8)];
                 //col_img.get_pixel_mut(1, HEIGHT - 1 - y as u32).0 = [((s * 255.0).round() as u8)];
             }
             //let jpeg_buf = Cursor::new(Vec::new());
@@ -389,6 +394,8 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
                     let mut row_count = 0;
                     let mut train_i = 0;
                     let mut test_i = 0;
+
+                    let mut images = Vec::new();
                     while row_count + 224 < 2048 {
                         let mut image = image::RgbImage::new(224, 224);
                         for x in 0..224 {
@@ -399,23 +406,49 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
                             }
                         }
 
-                        if random_range(0.0..=1.0) <= 0.2 {
-                            image.save(format!(
-                                "{}/test/{}_{j}_{test_i}.png",
-                                dir,
-                                args.prefix_for_split.as_ref().unwrap()
-                            ))?;
-                            test_i += 1;
-                        } else {
-                            image.save(format!(
-                                "{}/train/{}_{j}_{train_i}.png",
-                                dir,
-                                args.prefix_for_split.as_ref().unwrap()
-                            ))?;
-                            train_i += 1;
-                        }
+                        images.push(image);
+
+                        //if random_range(0.0..=1.0) <= 0.2 {
+                        //    image.save(format!(
+                        //        "{}/test/{}_{j}_{test_i}.png",
+                        //        dir,
+                        //        args.prefix_for_split.as_ref().unwrap()
+                        //    ))?;
+                        //    test_i += 1;
+                        //} else {
+                        //    image.save(format!(
+                        //        "{}/train/{}_{j}_{train_i}.png",
+                        //        dir,
+                        //        args.prefix_for_split.as_ref().unwrap()
+                        //    ))?;
+                        //    train_i += 1;
+                        //}
 
                         row_count += random_range(56..112);
+                    }
+                    let test_indices =
+                        (0..images.len()).choose_multiple(&mut rng, images.len() / 5);
+                    let mut test_iter = test_indices.iter().sorted();
+                    let mut next_test = test_iter.next();
+                    for (u, image) in images.iter().enumerate() {
+                        if let Some(test_index) = next_test {
+                            if u == *test_index {
+                                image.save(format!(
+                                    "{}/test/{}_{j}_{test_i}.png",
+                                    dir,
+                                    args.prefix_for_split.as_ref().unwrap()
+                                ))?;
+                                test_i += 1;
+                                next_test = test_iter.next();
+                                continue;
+                            }
+                        }
+                        image.save(format!(
+                            "{}/train/{}_{j}_{train_i}.png",
+                            dir,
+                            args.prefix_for_split.as_ref().unwrap()
+                        ))?;
+                        train_i += 1;
                     }
                     next_col_split += random_range(56..112);
                     j += 1;
