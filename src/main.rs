@@ -426,8 +426,8 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
 
                         row_count += random_range(56..112);
                     }
-                    let test_indices =
-                        (0..images.len()).choose_multiple(&mut rng, images.len() / 5);
+                    let test_indices = (0..images.len())
+                        .choose_multiple(&mut rng, (images.len() as f32 / 5.0).round() as usize);
                     let mut test_iter = test_indices.iter().sorted();
                     let mut next_test = test_iter.next();
                     for (u, image) in images.iter().enumerate() {
