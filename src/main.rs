@@ -116,6 +116,9 @@ struct ImgGenArgs {
     ///// Amplitude to dB reference value
     //#[arg(short = 'b', long)]
     //ref_db: f64,
+    /// Background pattern csv to subtract
+    #[arg(short, long)]
+    pattern: String,
 }
 
 #[derive(clap::Args)]
@@ -174,7 +177,7 @@ fn generate(args: GenerateArgs) -> Result<(), Box<dyn Error>> {
     let skip = args.skip.unwrap_or(1);
 
     //let mut i = 0;
-    let mut stft = Stft::new(N_FFT, HOP_LENGTH);
+    let mut stft = Stft::new(N_FFT, HOP_LENGTH, vec![0.0; 4097]);
     let samples = reader.samples::<i32>().step_by(skip);
     for s in samples {
         let sample = s?;
@@ -254,7 +257,7 @@ fn infer(args: InferArgs) -> Result<(), Box<dyn Error>> {
         reader.seek(args.start_sample)?;
     }
 
-    let mut stft = Stft::new(N_FFT, HOP_LENGTH);
+    let mut stft = Stft::new(N_FFT, HOP_LENGTH, vec![0f64; 4097]);
     let samples = reader.samples::<i32>();
     let mut f = 0;
     for s in samples {
@@ -338,7 +341,11 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
     let mut image = image::GrayImage::new(n, HEIGHT);
     let mut x: u32 = 0;
 
-    let mut stft = Stft::new(N_FFT, HOP_LENGTH);
+    let mut csv = csv::Reader::from_path(args.pattern)?;
+    let mut records = csv.deserialize();
+    let pattern: Vec<f64> = records.next().unwrap()?;
+
+    let mut stft = Stft::new(N_FFT, HOP_LENGTH, pattern);
     let samples = reader.samples::<i32>();
     for s in samples {
         let sample = s?;
@@ -414,7 +421,7 @@ fn test_mlp(args: TestMlpArgs) -> Result<(), Box<dyn Error>> {
     let mut sum_diff = 0i64;
     let mut count_ok = 0u32;
 
-    let mut stft = Stft::new(N_FFT, HOP_LENGTH);
+    let mut stft = Stft::new(N_FFT, HOP_LENGTH, vec![0.0; 4097]);
     let samples = reader.samples::<i32>();
     for s in samples {
         let sample = s?;

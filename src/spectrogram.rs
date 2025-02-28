@@ -32,11 +32,12 @@ pub struct Stft {
     //norm: [f64; ROWS],
     ready_counter: usize,
     ref_db: f64,
+    pattern: Vec<f64>,
     //filter_width: usize,
 }
 
 impl Stft {
-    pub fn new(n_fft: usize, hop_length: usize) -> Self {
+    pub fn new(n_fft: usize, hop_length: usize, pattern: Vec<f64>) -> Self {
         let mut planner = RealFftPlanner::new();
         let forward = planner.plan_fft_forward(n_fft);
         let indata = forward.make_input_vec();
@@ -58,7 +59,7 @@ impl Stft {
             //norm: [0f64; ROWS],
             ready_counter: 0,
             ref_db: 0.0,
-            //filter_width: FILTER_WIDTH,
+            pattern, //filter_width: FILTER_WIDTH,
         }
     }
 
@@ -83,6 +84,11 @@ impl Stft {
             // Filter column with reflection of beginning and end
             let mut filter = Filter::new(FILTER_WIDTH);
             let norm_col = self.outdata.iter().map(|s| s.norm()).collect::<Vec<f64>>();
+            let norm_col = norm_col
+                .into_iter()
+                .zip(self.pattern.iter())
+                .map(|(x, p)| (x - *p).max(0.0))
+                .collect::<Vec<f64>>();
             let relfect = norm_col
                 .iter()
                 .take(HALF_FILTER_WIDTH)
