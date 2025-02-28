@@ -239,7 +239,7 @@ fn new_hann_window(size: usize) -> Vec<f64> {
     window
 }
 
-pub fn amplitude_to_db(x_vec: &mut [f64], ref_db: f64) {
+pub fn amplitude_to_db(x_vec: &mut [f64], _ref_db: f64) {
     //let ref_db = if ref_db == 0.0 {
     //    *x_vec.iter().max_by(|a, b| a.total_cmp(b)).unwrap_or(&0.0)
     //} else {

@@ -17,7 +17,6 @@ use tract_onnx::prelude::*;
 
 use self::spectrogram::amplitude_to_db;
 use self::spectrogram::min_max_scale;
-use self::spectrogram::softmax;
 use self::spectrogram::{Stft, HOP_LENGTH, N_FFT};
 
 mod spectrogram;
@@ -358,7 +357,7 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
             stft.set_ref_db(*col_max);
             amplitude_to_db(&mut col, stft.get_ref_db());
             min_max_scale(&mut col);
-            softmax(&mut col);
+            //softmax(&mut col);
 
             //let mut col_img = image::GrayImage::new(1, HEIGHT);
 
@@ -383,7 +382,7 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
         stft.set_ref_db(*col_max);
         amplitude_to_db(&mut col, stft.get_ref_db());
         min_max_scale(&mut col);
-        softmax(&mut col);
+        //softmax(&mut col);
 
         for (y, s) in col.iter().enumerate() {
             image.get_pixel_mut(x, HEIGHT - 1 - y as u32).0 = [((s * 255.0).round() as u8)];
