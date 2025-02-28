@@ -399,7 +399,7 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
                             }
                         }
 
-                        if random_range(0..5) == 0 {
+                        if random_range(0.0..=1.0) <= 0.2 {
                             image.save(format!(
                                 "{}/test/{}_{j}_{test_i}.png",
                                 dir,
