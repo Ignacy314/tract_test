@@ -348,7 +348,7 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
             stft.hpss_one(&mut col);
             let col_max = col.iter().max_by(|a, b| a.total_cmp(b)).unwrap();
             stft.set_ref_db(*col_max);
-            //amplitude_to_db(&mut col, stft.get_ref_db());
+            amplitude_to_db(&mut col, stft.get_ref_db());
             min_max_scale(&mut col);
 
             //let mut col_img = image::GrayImage::new(1, HEIGHT);
@@ -372,7 +372,7 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
 
         let col_max = col.iter().max_by(|a, b| a.total_cmp(b)).unwrap();
         stft.set_ref_db(*col_max);
-        //amplitude_to_db(&mut col, stft.get_ref_db());
+        amplitude_to_db(&mut col, stft.get_ref_db());
         min_max_scale(&mut col);
 
         for (y, s) in col.iter().enumerate() {
