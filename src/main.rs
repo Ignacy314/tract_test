@@ -121,13 +121,13 @@ struct ImgGenArgs {
     bg_pattern: String,
     /// Output directory of cut images
     #[arg(short, long)]
-    split_output_dir: String,
+    split_output_dir: Option<String>,
     /// Prefix for split file name
     #[arg(short, long)]
-    prefix_for_split: String,
+    prefix_for_split: Option<String>,
     /// Date
     #[arg(short, long)]
-    date: String,
+    date: Option<String>,
 }
 
 #[derive(clap::Args)]
@@ -354,7 +354,7 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
     let mut records = csv.deserialize();
     let pattern: Vec<f64> = records.next().unwrap()?;
 
-    let mut col_count = 0;
+    //let mut col_count = 0;
     let mut next_col_split = 0;
     let mut j = 0;
 
@@ -384,37 +384,42 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
             //col_img.write_to(&mut jpeg_writer, image::ImageFormat::Jpeg)?;
             //let jpeg_data = jpeg_writer.buffer();
 
-            if col_count >= next_col_split && col_count + 240 < n {
-                let mut row_count = 0;
-                let mut i = 0;
-                while row_count + 240 < 2048 {
-                    let mut image = image::RgbImage::new(240, 240);
-                    for z in 0..240 {
-                        for (y, s) in col.iter().skip(row_count).take(240).enumerate() {
-                            let pixel = (s * 255.0).round() as u8;
-                            image.get_pixel_mut(z, 239 - y as u32).0 = [pixel, pixel, pixel];
+            if let Some(dir) = args.split_output_dir.as_ref() {
+                if x >= next_col_split && x + 240 < n {
+                    let mut row_count = 0;
+                    let mut i = 0;
+                    while row_count + 240 < 2048 {
+                        let mut image = image::RgbImage::new(240, 240);
+                        for z in 0..240 {
+                            for (y, s) in col.iter().skip(row_count).take(240).enumerate() {
+                                let pixel = (s * 255.0).round() as u8;
+                                image.get_pixel_mut(z, 239 - y as u32).0 = [pixel, pixel, pixel];
+                            }
                         }
+
+                        let test_or_train = if random_range(0..5) == 0 {
+                            "test"
+                        } else {
+                            "train"
+                        };
+
+                        image.save(format!(
+                            "{}/{}/{}/{}_{j}_{i}.png",
+                            dir,
+                            args.date.as_ref().unwrap(),
+                            test_or_train,
+                            args.prefix_for_split.as_ref().unwrap()
+                        ))?;
+
+                        row_count += random_range(64..192);
+                        i += 1;
                     }
-
-                    let dir = if random_range(0..5) == 0 {
-                        "test"
-                    } else {
-                        "train"
-                    };
-
-                    image.save(format!(
-                        "/home/test/mnt/dane/ignacy_split/{}/{}/{}_{j}_{i}.png",
-                        args.date, dir, args.prefix_for_split
-                    ))?;
-
-                    row_count += random_range(64..192);
-                    i += 1;
+                    next_col_split += random_range(64..192);
+                    j += 1;
                 }
-                next_col_split += random_range(64..192);
-                j += 1;
             }
 
-            col_count += 1;
+            //col_count += 1;
             x += 1;
             pb.inc(1);
         }
