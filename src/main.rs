@@ -335,6 +335,7 @@ fn infer(args: InferArgs) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+/// Generate a spectrogram image from a wav file
 fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
     let mut reader = hound::WavReader::open(args.input)?;
     const HEIGHT: u32 = 4097;
