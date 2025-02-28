@@ -196,9 +196,9 @@ fn generate(args: GenerateArgs) -> Result<(), Box<dyn Error>> {
         }
     }
     for mut col in stft.process_tail() {
-            let col_max = col.iter().max_by(|a, b| a.total_cmp(b)).unwrap();
-            stft.set_ref_db(*col_max);
-            amplitude_to_db(&mut col, stft.get_ref_db());
+        let col_max = col.iter().max_by(|a, b| a.total_cmp(b)).unwrap();
+        stft.set_ref_db(*col_max);
+        amplitude_to_db(&mut col, stft.get_ref_db());
         min_max_scale(&mut col);
         for s in &col[..4096] {
             write!(w, "{s},")?;
@@ -348,6 +348,7 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
             stft.hpss_one(&mut col);
             let col_max = col.iter().max_by(|a, b| a.total_cmp(b)).unwrap();
             stft.set_ref_db(*col_max);
+            min_max_scale(&mut col);
             amplitude_to_db(&mut col, stft.get_ref_db());
             min_max_scale(&mut col);
 
@@ -372,6 +373,7 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
 
         let col_max = col.iter().max_by(|a, b| a.total_cmp(b)).unwrap();
         stft.set_ref_db(*col_max);
+        min_max_scale(&mut col);
         amplitude_to_db(&mut col, stft.get_ref_db());
         min_max_scale(&mut col);
 
@@ -419,9 +421,9 @@ fn test_mlp(args: TestMlpArgs) -> Result<(), Box<dyn Error>> {
             //assert_eq!(col.len(), 4097);
             if let Some(csv_result) = csv.next() {
                 stft.hpss_one(&mut col);
-            let col_max = col.iter().max_by(|a, b| a.total_cmp(b)).unwrap();
-            stft.set_ref_db(*col_max);
-            amplitude_to_db(&mut col, stft.get_ref_db());
+                let col_max = col.iter().max_by(|a, b| a.total_cmp(b)).unwrap();
+                stft.set_ref_db(*col_max);
+                amplitude_to_db(&mut col, stft.get_ref_db());
                 min_max_scale(&mut col);
 
                 let mlp_input: Tensor = tract_ndarray::Array1::from_vec(col).into();

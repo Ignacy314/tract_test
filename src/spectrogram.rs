@@ -239,9 +239,9 @@ pub fn amplitude_to_db(x_vec: &mut [f64], ref_db: f64) {
     //} else {
     //    ref_db
     //};
-    //let ref_db = *x_vec.iter().max_by(|a, b| a.total_cmp(b)).unwrap_or(&0.0);
+    let ref_db = *x_vec.iter().max_by(|a, b| a.total_cmp(b)).unwrap_or(&0.0);
     //println!("{ref_db}");
-    let ref_db = 1740.32f64;
+    //let ref_db = 1740.32f64;
     let sub = 10.0 * (ref_db * ref_db).max(1e-10).log10();
     for x in x_vec.iter_mut() {
         *x = 10.0 * (*x * *x).max(1e-10).log10() - sub;
