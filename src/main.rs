@@ -347,13 +347,14 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
             //let mut col_img = image::GrayImage::new(1, HEIGHT);
 
             for (y, s) in col.iter().enumerate() {
-                image.get_pixel_mut(x, HEIGHT - y as u32).0 = [((s * 255.0).round() as u8)];
-                //col_img.get_pixel_mut(1, HEIGHT - y as u32).0 = [((s * 255.0).round() as u8)];
+                image.get_pixel_mut(x, HEIGHT - 1 - y as u32).0 = [((s * 255.0).round() as u8)];
+                //col_img.get_pixel_mut(1, HEIGHT - 1 - y as u32).0 = [((s * 255.0).round() as u8)];
             }
             //let jpeg_buf = Cursor::new(Vec::new());
             //let mut jpeg_writer = BufWriter::new(jpeg_buf);
             //col_img.write_to(&mut jpeg_writer, image::ImageFormat::Jpeg)?;
             //let jpeg_data = jpeg_writer.buffer();
+
             x += 1;
             pb.inc(1);
         }
@@ -365,11 +366,10 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
         amplitude_to_db(&mut col);
         min_max_scale(&mut col);
 
-        if x < n {
-            for (y, s) in col.iter().enumerate() {
-                image.get_pixel_mut(x, y as u32).0 = [((s * 255.0).round() as u8)];
-            }
+        for (y, s) in col.iter().enumerate() {
+            image.get_pixel_mut(x, HEIGHT - 1 - y as u32).0 = [((s * 255.0).round() as u8)];
         }
+
         x += 1;
         pb.inc(1);
     }
