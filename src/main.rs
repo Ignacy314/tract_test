@@ -348,7 +348,7 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
         .progress_chars("##-"),
     );
     let mut image = image::GrayImage::new(n, HEIGHT);
-    let mut x: u32 = 0;
+    let mut col_count: u32 = 0;
 
     let mut csv = csv::Reader::from_path(args.bg_pattern)?;
     let mut records = csv.deserialize();
@@ -376,7 +376,7 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
             //let mut col_img = image::GrayImage::new(1, HEIGHT);
 
             for (y, s) in col.iter().enumerate() {
-                image.get_pixel_mut(x, HEIGHT - 1 - y as u32).0 = [((s * 255.0).round() as u8)];
+                image.get_pixel_mut(col_count, HEIGHT - 1 - y as u32).0 = [((s * 255.0).round() as u8)];
                 //col_img.get_pixel_mut(1, HEIGHT - 1 - y as u32).0 = [((s * 255.0).round() as u8)];
             }
             //let jpeg_buf = Cursor::new(Vec::new());
@@ -385,42 +385,44 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
             //let jpeg_data = jpeg_writer.buffer();
 
             if let Some(dir) = args.split_output_dir.as_ref() {
-                if x >= next_col_split && x + 240 < n {
+                if col_count >= next_col_split && col_count + 224 < n {
                     let mut row_count = 0;
-                    let mut i = 0;
-                    while row_count + 240 < 2048 {
-                        let mut image = image::RgbImage::new(240, 240);
-                        for z in 0..240 {
-                            for (y, s) in col.iter().skip(row_count).take(240).enumerate() {
+                    let mut train_i = 0;
+                    let mut test_i = 0;
+                    while row_count + 224 < 2048 {
+                        let mut image = image::RgbImage::new(224, 224);
+                        for x in 0..224 {
+                            for (y, s) in col.iter().skip(row_count).take(224).enumerate() {
                                 let pixel = (s * 255.0).round() as u8;
-                                image.get_pixel_mut(z, 239 - y as u32).0 = [pixel, pixel, pixel];
+                                image.get_pixel_mut(x, 224 - 1 - y as u32).0 =
+                                    [pixel, pixel, pixel];
                             }
                         }
 
-                        let test_or_train = if random_range(0..5) == 0 {
-                            "test"
+                        if random_range(0..5) == 0 {
+                            image.save(format!(
+                                "{}/test/{}_{j}_{test_i}.png",
+                                dir,
+                                args.prefix_for_split.as_ref().unwrap()
+                            ))?;
+                            test_i += 1;
                         } else {
-                            "train"
-                        };
+                            image.save(format!(
+                                "{}/train/{}_{j}_{train_i}.png",
+                                dir,
+                                args.prefix_for_split.as_ref().unwrap()
+                            ))?;
+                            train_i += 1;
+                        }
 
-                        image.save(format!(
-                            "{}/{}/{}_{j}_{i}.png",
-                            dir,
-                            //args.date.as_ref().unwrap(),
-                            test_or_train,
-                            args.prefix_for_split.as_ref().unwrap()
-                        ))?;
-
-                        row_count += random_range(64..192);
-                        i += 1;
+                        row_count += random_range(56..112);
                     }
-                    next_col_split += random_range(64..192);
+                    next_col_split += random_range(56..112);
                     j += 1;
                 }
             }
 
-            //col_count += 1;
-            x += 1;
+            col_count += 1;
             pb.inc(1);
         }
     }
@@ -435,10 +437,10 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
         //softmax(&mut col);
 
         for (y, s) in col.iter().enumerate() {
-            image.get_pixel_mut(x, HEIGHT - 1 - y as u32).0 = [((s * 255.0).round() as u8)];
+            image.get_pixel_mut(col_count, HEIGHT - 1 - y as u32).0 = [((s * 255.0).round() as u8)];
         }
 
-        x += 1;
+        col_count += 1;
         pb.inc(1);
     }
     image.save(args.output)?;
