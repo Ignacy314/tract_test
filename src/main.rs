@@ -183,7 +183,9 @@ fn generate(args: GenerateArgs) -> Result<(), Box<dyn Error>> {
             //assert!(i <= width);
 
             stft.hpss_one(&mut col);
-            amplitude_to_db(&mut col);
+            let col_max = col.iter().max_by(|a, b| a.total_cmp(b)).unwrap();
+            stft.set_ref_db(*col_max);
+            amplitude_to_db(&mut col, stft.get_ref_db());
             min_max_scale(&mut col);
 
             for s in &col[..4096] {
@@ -194,7 +196,9 @@ fn generate(args: GenerateArgs) -> Result<(), Box<dyn Error>> {
         }
     }
     for mut col in stft.process_tail() {
-        amplitude_to_db(&mut col);
+            let col_max = col.iter().max_by(|a, b| a.total_cmp(b)).unwrap();
+            stft.set_ref_db(*col_max);
+            amplitude_to_db(&mut col, stft.get_ref_db());
         min_max_scale(&mut col);
         for s in &col[..4096] {
             write!(w, "{s},")?;
@@ -258,7 +262,9 @@ fn infer(args: InferArgs) -> Result<(), Box<dyn Error>> {
             //assert_eq!(col.len(), 4097);
 
             stft.hpss_one(&mut col);
-            amplitude_to_db(&mut col);
+            let col_max = col.iter().max_by(|a, b| a.total_cmp(b)).unwrap();
+            stft.set_ref_db(*col_max);
+            amplitude_to_db(&mut col, stft.get_ref_db());
             min_max_scale(&mut col);
 
             if let Some(resnet) = resnet.as_ref() {
@@ -340,7 +346,9 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
             //assert!(x < n);
 
             stft.hpss_one(&mut col);
-            amplitude_to_db(&mut col);
+            let col_max = col.iter().max_by(|a, b| a.total_cmp(b)).unwrap();
+            stft.set_ref_db(*col_max);
+            amplitude_to_db(&mut col, stft.get_ref_db());
             min_max_scale(&mut col);
 
             //let mut col_img = image::GrayImage::new(1, HEIGHT);
@@ -362,7 +370,9 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
         //assert_eq!(col.len(), 4097);
         //assert!(x < n);
 
-        amplitude_to_db(&mut col);
+        let col_max = col.iter().max_by(|a, b| a.total_cmp(b)).unwrap();
+        stft.set_ref_db(*col_max);
+        amplitude_to_db(&mut col, stft.get_ref_db());
         min_max_scale(&mut col);
 
         for (y, s) in col.iter().enumerate() {
@@ -409,7 +419,9 @@ fn test_mlp(args: TestMlpArgs) -> Result<(), Box<dyn Error>> {
             //assert_eq!(col.len(), 4097);
             if let Some(csv_result) = csv.next() {
                 stft.hpss_one(&mut col);
-                amplitude_to_db(&mut col);
+            let col_max = col.iter().max_by(|a, b| a.total_cmp(b)).unwrap();
+            stft.set_ref_db(*col_max);
+            amplitude_to_db(&mut col, stft.get_ref_db());
                 min_max_scale(&mut col);
 
                 let mlp_input: Tensor = tract_ndarray::Array1::from_vec(col).into();
@@ -439,7 +451,11 @@ fn test_mlp(args: TestMlpArgs) -> Result<(), Box<dyn Error>> {
     }
     for mut col in stft.process_tail() {
         if let Some(csv_result) = csv.next() {
-            amplitude_to_db(&mut col);
+            let col_max = col.iter().max_by(|a, b| a.total_cmp(b)).unwrap();
+            stft.set_ref_db(*col_max);
+            let col_max = col.iter().max_by(|a, b| a.total_cmp(b)).unwrap();
+            stft.set_ref_db(*col_max);
+            amplitude_to_db(&mut col, stft.get_ref_db());
             min_max_scale(&mut col);
 
             let mlp_input: Tensor = tract_ndarray::Array1::from_vec(col).into();

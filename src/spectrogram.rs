@@ -31,6 +31,7 @@ pub struct Stft {
     pub perc: [f64; ROWS],
     //norm: [f64; ROWS],
     ready_counter: usize,
+    ref_db: f64,
     //filter_width: usize,
 }
 
@@ -56,6 +57,7 @@ impl Stft {
             perc: [0f64; ROWS],
             //norm: [0f64; ROWS],
             ready_counter: 0,
+            ref_db: 0.0,
             //filter_width: FILTER_WIDTH,
         }
     }
@@ -207,6 +209,16 @@ impl Stft {
 
         mask
     }
+
+    pub fn set_ref_db(&mut self, new_max: f64) {
+        if new_max > self.ref_db {
+            self.ref_db = new_max
+        }
+    }
+
+    pub fn get_ref_db(&self) -> f64 {
+        self.ref_db
+    }
 }
 
 fn new_hann_window(size: usize) -> Vec<f64> {
@@ -221,13 +233,13 @@ fn new_hann_window(size: usize) -> Vec<f64> {
     window
 }
 
-pub fn amplitude_to_db(x_vec: &mut [f64]) {
+pub fn amplitude_to_db(x_vec: &mut [f64], ref_db: f64) {
     //let ref_db = if ref_db == 0.0 {
     //    *x_vec.iter().max_by(|a, b| a.total_cmp(b)).unwrap_or(&0.0)
     //} else {
     //    ref_db
     //};
-    let ref_db = *x_vec.iter().max_by(|a, b| a.total_cmp(b)).unwrap_or(&0.0);
+    //let ref_db = *x_vec.iter().max_by(|a, b| a.total_cmp(b)).unwrap_or(&0.0);
     let sub = 10.0 * (ref_db * ref_db).max(1e-10).log10();
     for x in x_vec.iter_mut() {
         *x = 10.0 * (*x * *x).max(1e-10).log10() - sub;
