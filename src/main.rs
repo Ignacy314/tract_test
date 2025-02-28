@@ -10,6 +10,7 @@ use circular_buffer::CircularBuffer;
 use clap::{Parser, Subcommand};
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
+use rand::random_range;
 use rand::rng;
 use rand::seq::IteratorRandom;
 use rand::Rng;
@@ -117,7 +118,16 @@ struct ImgGenArgs {
     //ref_db: f64,
     /// Background pattern csv to subtract
     #[arg(short, long)]
-    pattern: String,
+    bg_pattern: String,
+    /// Output directory of cut images
+    #[arg(short, long)]
+    split_output_dir: String,
+    /// Prefix for split file name
+    #[arg(short, long)]
+    prefix_for_split: String,
+    /// Date
+    #[arg(short, long)]
+    date: String,
 }
 
 #[derive(clap::Args)]
@@ -340,9 +350,13 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
     let mut image = image::GrayImage::new(n, HEIGHT);
     let mut x: u32 = 0;
 
-    let mut csv = csv::Reader::from_path(args.pattern)?;
+    let mut csv = csv::Reader::from_path(args.bg_pattern)?;
     let mut records = csv.deserialize();
     let pattern: Vec<f64> = records.next().unwrap()?;
+
+    let mut col_count = 0;
+    let mut next_col_split = 0;
+    let mut j = 0;
 
     let mut stft = Stft::new(N_FFT, HOP_LENGTH, pattern);
     let samples = reader.samples::<i32>();
@@ -370,6 +384,37 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
             //col_img.write_to(&mut jpeg_writer, image::ImageFormat::Jpeg)?;
             //let jpeg_data = jpeg_writer.buffer();
 
+            if col_count >= next_col_split && col_count + 240 < n {
+                let mut row_count = 0;
+                let mut i = 0;
+                while row_count + 240 < 2048 {
+                    let mut image = image::RgbImage::new(240, 240);
+                    for z in 0..240 {
+                        for (y, s) in col.iter().skip(row_count).take(240).enumerate() {
+                            let pixel = (s * 255.0).round() as u8;
+                            image.get_pixel_mut(z, 239 - y as u32).0 = [pixel, pixel, pixel];
+                        }
+                    }
+
+                    let dir = if random_range(0..5) == 0 {
+                        "test"
+                    } else {
+                        "train"
+                    };
+
+                    image.save(format!(
+                        "/home/test/mnt/dane/ignacy_split/{}/{}/{}_{j}_{i}.png",
+                        args.date, dir, args.prefix_for_split
+                    ))?;
+
+                    row_count += random_range(64..192);
+                    i += 1;
+                }
+                next_col_split += random_range(64..192);
+                j += 1;
+            }
+
+            col_count += 1;
             x += 1;
             pb.inc(1);
         }

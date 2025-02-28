@@ -87,7 +87,7 @@ impl Stft {
             let norm_col = norm_col
                 .into_iter()
                 .zip(self.pattern.iter())
-                .map(|(x, p)| (x - *p * 0.25).max(0.0))
+                .map(|(x, p)| (x - *p * 0.5).max(0.0))
                 .collect::<Vec<f64>>();
             let relfect = norm_col
                 .iter()
