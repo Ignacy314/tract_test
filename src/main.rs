@@ -12,7 +12,6 @@ use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
 use rand::random_range;
 use rand::rng;
-use rand::seq::IndexedRandom;
 use rand::seq::IteratorRandom;
 use rand::Rng;
 use tract_onnx::prelude::*;

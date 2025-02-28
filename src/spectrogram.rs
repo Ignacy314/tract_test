@@ -274,8 +274,8 @@ pub fn min_max_scale(x_vec: &mut [f64]) {
     }
 }
 
-pub fn softmax(x_vec: &mut [f64]) {
-    for x in x_vec.iter_mut() {
-        *x = 1.0 / (1.0 + (-(10.0 * (*x - 0.5))).exp())
-    }
-}
+//pub fn softmax(x_vec: &mut [f64]) {
+//    for x in x_vec.iter_mut() {
+//        *x = 1.0 / (1.0 + (-(10.0 * (*x - 0.5))).exp())
+//    }
+//}
