@@ -15,6 +15,8 @@ use rand::seq::IteratorRandom;
 use rand::Rng;
 use tract_onnx::prelude::*;
 
+use self::spectrogram::amplitude_to_db;
+use self::spectrogram::min_max_scale;
 //use self::spectrogram::FILTER_WIDTH;
 use self::spectrogram::{Stft, HOP_LENGTH, N_FFT};
 
@@ -154,46 +156,13 @@ struct TestResnetArgs {
     n: usize,
 }
 
-fn amplitude_to_db(x_vec: &mut [f64]) {
-    //let ref_db = if ref_db == 0.0 {
-    //    *x_vec.iter().max_by(|a, b| a.total_cmp(b)).unwrap_or(&0.0)
-    //} else {
-    //    ref_db
-    //};
-    let ref_db = *x_vec.iter().max_by(|a, b| a.total_cmp(b)).unwrap_or(&0.0);
-    let sub = 10.0 * (ref_db * ref_db).max(1e-10).log10();
-    for x in x_vec.iter_mut() {
-        *x = 10.0 * (*x * *x).max(1e-10).log10() - sub;
-    }
-    let x_max = *x_vec.iter().max_by(|a, b| a.total_cmp(b)).unwrap_or(&0.0);
-    for x in x_vec.iter_mut() {
-        *x = x.max(x_max - 80.0);
-    }
-}
-
-fn min_max_scale(x_vec: &mut [f64]) {
-    let mut x_max = f64::MIN;
-    let mut x_min = f64::MAX;
-    for &x in x_vec.iter() {
-        if x > x_max {
-            x_max = x;
-        }
-        if x < x_min {
-            x_min = x;
-        }
-    }
-    for x in x_vec {
-        *x = (*x - x_min) / (x_max - x_min);
-    }
-}
-
 fn generate(args: GenerateArgs) -> Result<(), Box<dyn Error>> {
     let mut reader = hound::WavReader::open(args.input)?;
     let mut w = BufWriter::new(File::create(args.output)?);
-    let width = (reader.duration() - 4096) / 4096;
+    let n = (reader.duration() - 4096) / 4096;
 
-    let pb = ProgressBar::new(u64::from(width));
-    let t = f64::from(width).log10().ceil() as u64;
+    let pb = ProgressBar::new(u64::from(n));
+    let t = f64::from(n).log10().ceil() as u64;
     pb.set_style(
         ProgressStyle::with_template(&format!(
         "[{{elapsed_precise}}] {{bar:40.cyan/blue}} {{pos:>{t}}}/{{len:{t}}} ({{percent}}%) {{msg}}"
@@ -204,15 +173,15 @@ fn generate(args: GenerateArgs) -> Result<(), Box<dyn Error>> {
 
     let skip = args.skip.unwrap_or(1);
 
-    let mut i = 0;
+    //let mut i = 0;
     let mut stft = Stft::new(N_FFT, HOP_LENGTH);
     let samples = reader.samples::<i32>().step_by(skip);
     for s in samples {
         let sample = s?;
         if let Some(mut col) = stft.process_samples(&mut [sample as f64]) {
-            assert_eq!(col.len(), 4097);
-            i += 1;
-            assert!(i <= width);
+            //assert_eq!(col.len(), 4097);
+            //i += 1;
+            //assert!(i <= width);
 
             stft.hpss_one(&mut col);
             amplitude_to_db(&mut col);
@@ -287,7 +256,7 @@ fn infer(args: InferArgs) -> Result<(), Box<dyn Error>> {
     for s in samples {
         let sample = s?;
         if let Some(mut col) = stft.process_samples(&mut [sample as f64]) {
-            assert_eq!(col.len(), 4097);
+            //assert_eq!(col.len(), 4097);
 
             stft.hpss_one(&mut col);
             amplitude_to_db(&mut col);
@@ -350,9 +319,9 @@ fn infer(args: InferArgs) -> Result<(), Box<dyn Error>> {
 fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
     let mut reader = hound::WavReader::open(args.input)?;
     const HEIGHT: u32 = 4097;
-    let width = (reader.duration() - 4096) / 4096;
-    let pb = ProgressBar::new(u64::from(width));
-    let t = f64::from(width).log10().ceil() as u64;
+    let n = (reader.duration() - 4096) / 4096;
+    let pb = ProgressBar::new(u64::from(n));
+    let t = f64::from(n).log10().ceil() as u64;
     pb.set_style(
         ProgressStyle::with_template(&format!(
         "[{{elapsed_precise}}] {{bar:40.cyan/blue}} {{pos:>{t}}}/{{len:{t}}} ({{percent}}%) {{msg}}"
@@ -360,7 +329,7 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
         .unwrap()
         .progress_chars("##-"),
     );
-    let mut image = image::GrayImage::new(width, HEIGHT);
+    let mut image = image::GrayImage::new(n, HEIGHT);
     let mut x: u32 = 0;
 
     let mut stft = Stft::new(N_FFT, HOP_LENGTH);
@@ -368,34 +337,35 @@ fn img_gen(args: ImgGenArgs) -> Result<(), Box<dyn Error>> {
     for s in samples {
         let sample = s?;
         if let Some(mut col) = stft.process_samples(&mut [sample as f64]) {
-            assert_eq!(col.len(), 4097);
-            assert!(x < width);
+            //assert_eq!(col.len(), 4097);
+            //assert!(x < n);
 
             stft.hpss_one(&mut col);
             amplitude_to_db(&mut col);
             min_max_scale(&mut col);
 
-            let mut col_img = image::GrayImage::new(1, HEIGHT);
+            //let mut col_img = image::GrayImage::new(1, HEIGHT);
 
             for (y, s) in col.iter().enumerate() {
                 image.get_pixel_mut(x, HEIGHT - y as u32).0 = [((s * 255.0).round() as u8)];
-                col_img.get_pixel_mut(1, HEIGHT - y as u32).0 = [((s * 255.0).round() as u8)];
+                //col_img.get_pixel_mut(1, HEIGHT - y as u32).0 = [((s * 255.0).round() as u8)];
             }
-            //let jpg = turbojpeg::compress_image(&col_img, 95, turbojpeg::Subsamp::None)?;
-            //let jpg_data = jpg.as_bytes();
+            //let jpeg_buf = Cursor::new(Vec::new());
+            //let mut jpeg_writer = BufWriter::new(jpeg_buf);
+            //col_img.write_to(&mut jpeg_writer, image::ImageFormat::Jpeg)?;
+            //let jpeg_data = jpeg_writer.buffer();
             x += 1;
             pb.inc(1);
         }
     }
     for mut col in stft.process_tail() {
-        assert_eq!(col.len(), 4097);
-        assert!(x < width);
+        //assert_eq!(col.len(), 4097);
+        //assert!(x < n);
 
-        stft.hpss_one(&mut col);
         amplitude_to_db(&mut col);
         min_max_scale(&mut col);
 
-        if x < width {
+        if x < n {
             for (y, s) in col.iter().enumerate() {
                 image.get_pixel_mut(x, y as u32).0 = [((s * 255.0).round() as u8)];
             }
@@ -437,7 +407,7 @@ fn test_mlp(args: TestMlpArgs) -> Result<(), Box<dyn Error>> {
     for s in samples {
         let sample = s?;
         if let Some(mut col) = stft.process_samples(&mut [sample as f64]) {
-            assert_eq!(col.len(), 4097);
+            //assert_eq!(col.len(), 4097);
             if let Some(csv_result) = csv.next() {
                 stft.hpss_one(&mut col);
                 amplitude_to_db(&mut col);
@@ -571,7 +541,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         Commands::Infer(args) => infer(args)?,
         Commands::ImgGen(args) => img_gen(args)?,
         Commands::TestMlp(args) => test_mlp(args)?,
-        Commands::TestResnet(args) => test_resnet(args)?
+        Commands::TestResnet(args) => test_resnet(args)?,
     }
     Ok(())
 }

@@ -15,18 +15,6 @@ pub const HALF_FILTER_WIDTH: usize = 31 / 2;
 const COLS: usize = HALF_FILTER_WIDTH;
 const ROWS: usize = N_FFT / 2 + 1;
 
-fn new_hann_window(size: usize) -> Vec<f64> {
-    let mut window = Vec::with_capacity(size);
-
-    for n in 0..size {
-        let x = n as f64 / size as f64;
-        let value = 0.5 * (1.0 - (2.0 * PI * x).cos());
-        window.push(value);
-    }
-
-    window
-}
-
 pub struct Stft {
     n_fft: usize,
     hop_length: usize,
@@ -43,7 +31,7 @@ pub struct Stft {
     pub perc: [f64; ROWS],
     //norm: [f64; ROWS],
     ready_counter: usize,
-    filter_width: usize,
+    //filter_width: usize,
 }
 
 impl Stft {
@@ -68,7 +56,7 @@ impl Stft {
             perc: [0f64; ROWS],
             //norm: [0f64; ROWS],
             ready_counter: 0,
-            filter_width: FILTER_WIDTH,
+            //filter_width: FILTER_WIDTH,
         }
     }
 
@@ -90,21 +78,22 @@ impl Stft {
         while self.contains_enough_to_compute() {
             self.compute_into_outdata();
 
-            let mut filter = Filter::new(self.filter_width);
+            // Filter column with reflection of beginning and end
+            let mut filter = Filter::new(FILTER_WIDTH);
             let norm_col = self.outdata.iter().map(|s| s.norm()).collect::<Vec<f64>>();
             let relfect = norm_col
                 .iter()
-                .take(self.filter_width / 2)
+                .take(HALF_FILTER_WIDTH)
                 .chain(norm_col.iter())
-                .chain(norm_col.iter().rev().take(self.filter_width / 2));
-
+                .chain(norm_col.iter().rev().take(HALF_FILTER_WIDTH));
             for (i, sn) in relfect.enumerate() {
                 let f = filter.consume(*sn);
-                if i >= self.filter_width {
-                    self.perc[i - self.filter_width] = f;
+                if i >= FILTER_WIDTH {
+                    self.perc[i - FILTER_WIDTH] = f;
                 }
             }
 
+            // Prepare row filters and filter once there is enough data for reflection
             match self.ready_counter {
                 0..HALF_FILTER_WIDTH => {}
                 HALF_FILTER_WIDTH => {
@@ -217,5 +206,50 @@ impl Stft {
         }
 
         mask
+    }
+}
+
+fn new_hann_window(size: usize) -> Vec<f64> {
+    let mut window = Vec::with_capacity(size);
+
+    for n in 0..size {
+        let x = n as f64 / size as f64;
+        let value = 0.5 * (1.0 - (2.0 * PI * x).cos());
+        window.push(value);
+    }
+
+    window
+}
+
+pub fn amplitude_to_db(x_vec: &mut [f64]) {
+    //let ref_db = if ref_db == 0.0 {
+    //    *x_vec.iter().max_by(|a, b| a.total_cmp(b)).unwrap_or(&0.0)
+    //} else {
+    //    ref_db
+    //};
+    let ref_db = *x_vec.iter().max_by(|a, b| a.total_cmp(b)).unwrap_or(&0.0);
+    let sub = 10.0 * (ref_db * ref_db).max(1e-10).log10();
+    for x in x_vec.iter_mut() {
+        *x = 10.0 * (*x * *x).max(1e-10).log10() - sub;
+    }
+    let x_max = *x_vec.iter().max_by(|a, b| a.total_cmp(b)).unwrap_or(&0.0);
+    for x in x_vec.iter_mut() {
+        *x = x.max(x_max - 80.0);
+    }
+}
+
+pub fn min_max_scale(x_vec: &mut [f64]) {
+    let mut x_max = f64::MIN;
+    let mut x_min = f64::MAX;
+    for &x in x_vec.iter() {
+        if x > x_max {
+            x_max = x;
+        }
+        if x < x_min {
+            x_min = x;
+        }
+    }
+    for x in x_vec {
+        *x = (*x - x_min) / (x_max - x_min);
     }
 }
