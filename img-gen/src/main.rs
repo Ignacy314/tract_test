@@ -29,6 +29,8 @@ struct ImgGenArgs {
     /// Prefix for split file name
     #[arg(short, long)]
     prefix_for_split: Option<String>,
+    #[arg(short = 'k', long)]
+    skip: Option<usize>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -109,10 +111,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         None
     };
 
+    let skip = args.skip.unwrap_or(1);
+
     let mut spectrogram = Vec::new();
 
     let mut stft = Stft::new(N_FFT, HOP_LENGTH, pattern);
-    let samples = reader.samples::<i32>();
+    let samples = reader.samples::<i32>().step_by(skip);
     for s in samples {
         let sample = s?;
         if let Some(mut col) = stft.process_samples(&mut [sample as f64]) {
