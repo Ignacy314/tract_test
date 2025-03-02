@@ -1,0 +1,10 @@
+[package]
+name = "spectrogram"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+circular-buffer = "1.0.0"
+median = "0.3.2"
+realfft = "3.4.0"
+strider = "0.1.3"

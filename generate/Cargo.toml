@@ -1,0 +1,11 @@
+[package]
+name = "generate"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+spectrogram.workspace = true
+clap.workspace = true
+hound.workspace = true
+indicatif.workspace = true
+csv = "1.3.1"
