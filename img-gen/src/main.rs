@@ -98,8 +98,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .unwrap()
         .progress_chars("##-"),
     );
-    let mut image = image::GrayImage::new(n, HEIGHT);
-    let mut col_count: u32 = 0;
+    //let mut col_count: u32 = 0;
 
     let pattern = if let Some(bg_pattern) = args.bg_pattern {
         let mut csv = csv::Reader::from_path(bg_pattern)?;
@@ -110,10 +109,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         None
     };
 
-    let mut next_col_split = 0;
-    let mut j = 0;
-
-    let mut rng = rng();
+    let mut spectrogram = Vec::new();
 
     let mut stft = Stft::new(N_FFT, HOP_LENGTH, pattern);
     let samples = reader.samples::<i32>();
@@ -126,34 +122,36 @@ fn main() -> Result<(), Box<dyn Error>> {
             amplitude_to_db(&mut col);
             min_max_scale(&mut col);
 
+            spectrogram.push(col);
+
             //let mut col_img = image::GrayImage::new(1, HEIGHT);
 
-            if args.output.is_some() {
-                for (y, s) in col.iter().enumerate() {
-                    image.get_pixel_mut(col_count, HEIGHT - 1 - y as u32).0 =
-                        [((s * 255.0).round() as u8)];
-                    //col_img.get_pixel_mut(1, HEIGHT - 1 - y as u32).0 = [((s * 255.0).round() as u8)];
-                }
-            }
-            //let jpeg_buf = Cursor::new(Vec::new());
-            //let mut jpeg_writer = BufWriter::new(jpeg_buf);
-            //col_img.write_to(&mut jpeg_writer, image::ImageFormat::Jpeg)?;
-            //let jpeg_data = jpeg_writer.buffer();
-
-            if let Some(dir) = args.split_output_dir.as_ref() {
-                split(
-                    col_count,
-                    &mut next_col_split,
-                    n,
-                    &col,
-                    &mut j,
-                    &mut rng,
-                    dir,
-                    args.prefix_for_split.as_ref().unwrap(),
-                )?
-            }
-
-            col_count += 1;
+            //if args.output.is_some() {
+            //    for (y, s) in col.iter().enumerate() {
+            //        image.get_pixel_mut(col_count, HEIGHT - 1 - y as u32).0 =
+            //            [((s * 255.0).round() as u8)];
+            //        //col_img.get_pixel_mut(1, HEIGHT - 1 - y as u32).0 = [((s * 255.0).round() as u8)];
+            //    }
+            //}
+            ////let jpeg_buf = Cursor::new(Vec::new());
+            ////let mut jpeg_writer = BufWriter::new(jpeg_buf);
+            ////col_img.write_to(&mut jpeg_writer, image::ImageFormat::Jpeg)?;
+            ////let jpeg_data = jpeg_writer.buffer();
+            //
+            //if let Some(dir) = args.split_output_dir.as_ref() {
+            //    split(
+            //        col_count,
+            //        &mut next_col_split,
+            //        n,
+            //        &col,
+            //        &mut j,
+            //        &mut rng,
+            //        dir,
+            //        args.prefix_for_split.as_ref().unwrap(),
+            //    )?
+            //}
+            //
+            //col_count += 1;
             pb.inc(1);
         }
     }
@@ -163,29 +161,58 @@ fn main() -> Result<(), Box<dyn Error>> {
         amplitude_to_db(&mut col);
         min_max_scale(&mut col);
 
-        for (y, s) in col.iter().enumerate() {
-            image.get_pixel_mut(col_count, HEIGHT - 1 - y as u32).0 = [((s * 255.0).round() as u8)];
-        }
+        spectrogram.push(col);
 
-        if let Some(dir) = args.split_output_dir.as_ref() {
+        //for (y, s) in col.iter().enumerate() {
+        //    image.get_pixel_mut(col_count, HEIGHT - 1 - y as u32).0 = [((s * 255.0).round() as u8)];
+        //}
+        //
+        //if let Some(dir) = args.split_output_dir.as_ref() {
+        //    split(
+        //        col_count,
+        //        &mut next_col_split,
+        //        n,
+        //        &col,
+        //        &mut j,
+        //        &mut rng,
+        //        dir,
+        //        args.prefix_for_split.as_ref().unwrap(),
+        //    )?
+        //}
+        //
+        //col_count += 1;
+        pb.inc(1);
+    }
+    if let Some(output) = args.output {
+        let mut image = image::GrayImage::new(spectrogram.len() as u32, HEIGHT);
+        for (col_count, col) in spectrogram.iter().enumerate() {
+            for (y, s) in col.iter().enumerate() {
+                image
+                    .get_pixel_mut(col_count as u32, HEIGHT - 1 - y as u32)
+                    .0 = [((s * 255.0).round() as u8)];
+                //col_img.get_pixel_mut(1, HEIGHT - 1 - y as u32).0 = [((s * 255.0).round() as u8)];
+            }
+        }
+        image.save(output)?;
+    }
+    if let Some(dir) = args.split_output_dir.as_ref() {
+        let mut next_col_split = 0;
+        let mut j = 0;
+        let mut rng = rng();
+        for (col_count, col) in spectrogram.iter().enumerate() {
             split(
-                col_count,
+                col_count as u32,
                 &mut next_col_split,
                 n,
-                &col,
+                col,
                 &mut j,
                 &mut rng,
                 dir,
                 args.prefix_for_split.as_ref().unwrap(),
             )?
         }
+    }
 
-        col_count += 1;
-        pb.inc(1);
-    }
-    if let Some(output) = args.output {
-        image.save(output)?;
-    }
     pb.finish_with_message(format!("Frames processed: {}", pb.position()));
     Ok(())
 }
