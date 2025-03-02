@@ -29,8 +29,12 @@ struct ImgGenArgs {
     /// Prefix for split file name
     #[arg(short, long)]
     prefix_for_split: Option<String>,
+    /// Step by that many samples, defaults to 1
     #[arg(short = 'k', long)]
-    skip: Option<usize>,
+    step: Option<usize>,
+    /// If true split 20% outputs as test
+    #[arg(short, long)]
+    test_split: bool,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -43,6 +47,7 @@ fn split(
     rng: &mut ThreadRng,
     dir: &str,
     prefix_for_split: &str,
+    test_split: bool,
 ) -> Result<(), Box<dyn Error>> {
     if col_count >= *next_col_split && col_count + 224 < n {
         let mut row_count = 0;
@@ -63,8 +68,11 @@ fn split(
 
             row_count += random_range(56..112);
         }
-        let mut test_indices =
-            (0..images.len()).choose_multiple(rng, (images.len() as f32 / 5.0).round() as usize);
+        let mut test_indices = if test_split {
+            (0..images.len()).choose_multiple(rng, (images.len() as f32 / 5.0).round() as usize)
+        } else {
+            Vec::new()
+        };
         test_indices.sort_unstable();
         let mut test_iter = test_indices.iter();
         let mut next_test = test_iter.next();
@@ -111,7 +119,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         None
     };
 
-    let skip = args.skip.unwrap_or(1);
+    let skip = args.step.unwrap_or(1);
 
     let mut spectrogram = Vec::new();
 
@@ -213,6 +221,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 &mut rng,
                 dir,
                 args.prefix_for_split.as_ref().unwrap(),
+                args.test_split,
             )?
         }
     }
