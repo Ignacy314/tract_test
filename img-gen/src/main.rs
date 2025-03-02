@@ -20,15 +20,6 @@ struct ImgGenArgs {
     /// Path to output file
     #[arg(short, long)]
     output: Option<String>,
-    ///// Width of the median filter
-    //#[arg(short, long)]
-    //width: usize,
-    ///// Power of the softmask
-    //#[arg(short, long)]
-    //power: i32,
-    ///// Amplitude to dB reference value
-    //#[arg(short = 'b', long)]
-    //ref_db: f64,
     /// Background pattern csv to subtract
     #[arg(short, long)]
     bg_pattern: Option<String>,

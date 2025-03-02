@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = ["img-gen", "generate", "spectrogram"]
+default-members = ["img-gen", "generate"]
 
 [workspace.package]
 version = "0.1.0"
