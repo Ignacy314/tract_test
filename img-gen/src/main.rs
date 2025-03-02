@@ -86,7 +86,6 @@ fn split(
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args = ImgGenArgs::parse();
-    println!("{}", args.input);
     let mut reader = hound::WavReader::open(args.input)?;
     const HEIGHT: u32 = 4097;
     let n = (reader.duration() - 4096) / 4096;
