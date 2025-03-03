@@ -42,7 +42,7 @@ fn split(
     col_count: u32,
     next_col_split: &mut u32,
     n: u32,
-    col: &[f64],
+    cols: &[Vec<f64>],
     j: &mut u32,
     rng: &mut ThreadRng,
     dir: &str,
@@ -57,10 +57,10 @@ fn split(
         let mut images = Vec::new();
         while row_count + 224 < 2048 {
             let mut image = image::RgbImage::new(224, 224);
-            for x in 0..224 {
+            for (x, col) in cols.iter().enumerate() {
                 for (y, s) in col.iter().skip(row_count).take(224).enumerate() {
                     let pixel = (s * 255.0).round() as u8;
-                    image.get_pixel_mut(x, 224 - 1 - y as u32).0 = [pixel, pixel, pixel];
+                    image.get_pixel_mut(x as u32, 224 - 1 - y as u32).0 = [pixel, pixel, pixel];
                 }
             }
 
@@ -211,7 +211,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let mut next_col_split = 0;
         let mut j = 0;
         let mut rng = rng();
-        for (col_count, col) in spectrogram.iter().enumerate() {
+        for (col_count, col) in spectrogram.windows(224).enumerate() {
             split(
                 col_count as u32,
                 &mut next_col_split,
