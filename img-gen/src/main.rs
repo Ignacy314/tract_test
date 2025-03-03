@@ -108,7 +108,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         .unwrap()
         .progress_chars("##-"),
     );
-    //let mut col_count: u32 = 0;
 
     let pattern = if let Some(bg_pattern) = args.bg_pattern {
         let mut csv = csv::Reader::from_path(bg_pattern)?;
@@ -129,8 +128,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         let sample = s?;
         if let Some(mut col) = stft.process_samples(&mut [sample as f64]) {
             stft.hpss_one(&mut col);
-            //let col_max = col.iter().max_by(|a, b| a.total_cmp(b)).unwrap();
-            //stft.set_ref_db(*col_max);
             amplitude_to_db(&mut col);
             min_max_scale(&mut col);
 
@@ -149,53 +146,32 @@ fn main() -> Result<(), Box<dyn Error>> {
             ////let mut jpeg_writer = BufWriter::new(jpeg_buf);
             ////col_img.write_to(&mut jpeg_writer, image::ImageFormat::Jpeg)?;
             ////let jpeg_data = jpeg_writer.buffer();
-            //
-            //if let Some(dir) = args.split_output_dir.as_ref() {
-            //    split(
-            //        col_count,
-            //        &mut next_col_split,
-            //        n,
-            //        &col,
-            //        &mut j,
-            //        &mut rng,
-            //        dir,
-            //        args.prefix_for_split.as_ref().unwrap(),
-            //    )?
-            //}
-            //
-            //col_count += 1;
+
             pb.inc(1);
         }
     }
     for mut col in stft.process_tail() {
-        //let col_max = col.iter().max_by(|a, b| a.total_cmp(b)).unwrap();
-        //stft.set_ref_db(*col_max);
         amplitude_to_db(&mut col);
         min_max_scale(&mut col);
 
         spectrogram.push(col);
 
-        //for (y, s) in col.iter().enumerate() {
-        //    image.get_pixel_mut(col_count, HEIGHT - 1 - y as u32).0 = [((s * 255.0).round() as u8)];
-        //}
-        //
-        //if let Some(dir) = args.split_output_dir.as_ref() {
-        //    split(
-        //        col_count,
-        //        &mut next_col_split,
-        //        n,
-        //        &col,
-        //        &mut j,
-        //        &mut rng,
-        //        dir,
-        //        args.prefix_for_split.as_ref().unwrap(),
-        //    )?
-        //}
-        //
-        //col_count += 1;
         pb.inc(1);
     }
+    pb.finish_with_message(format!("Frames processed: {}", pb.position()));
+
     if let Some(output) = args.output {
+        let n = spectrogram.len() as u32;
+        let pb = ProgressBar::new(u64::from(n));
+        let t = f64::from(n).log10().ceil() as u64;
+        pb.set_style(
+            ProgressStyle::with_template(&format!(
+                "[{{elapsed_precise}}] {{bar:40.cyan/blue}} {{pos:>{t}}}/{{len:{t}}} ({{percent}}%) {{msg}}"
+            ))
+            .unwrap()
+            .progress_chars("##-"),
+        );
+        pb.set_message("saving image");
         let mut image = image::GrayImage::new(spectrogram.len() as u32, HEIGHT);
         for (col_count, col) in spectrogram.iter().enumerate() {
             for (y, s) in col.iter().enumerate() {
@@ -204,14 +180,29 @@ fn main() -> Result<(), Box<dyn Error>> {
                     .0 = [((s * 255.0).round() as u8)];
                 //col_img.get_pixel_mut(1, HEIGHT - 1 - y as u32).0 = [((s * 255.0).round() as u8)];
             }
+            pb.inc(1);
         }
         image.save(output)?;
     }
+    pb.finish_with_message(format!("Image saved. Frames processed: {}", pb.position()));
+
     if let Some(dir) = args.split_output_dir.as_ref() {
+        let windows = spectrogram.windows(224);
+        let n = windows.len() as u32;
+        let pb = ProgressBar::new(u64::from(n));
+        let t = f64::from(n).log10().ceil() as u64;
+        pb.set_style(
+            ProgressStyle::with_template(&format!(
+                "[{{elapsed_precise}}] {{bar:40.cyan/blue}} {{pos:>{t}}}/{{len:{t}}} ({{percent}}%) {{msg}}"
+            ))
+            .unwrap()
+            .progress_chars("##-"),
+        );
+        pb.set_message("saving split images");
         let mut next_col_split = 0;
         let mut j = 0;
         let mut rng = rng();
-        for (col_count, col) in spectrogram.windows(224).enumerate() {
+        for (col_count, col) in windows.enumerate() {
             split(
                 col_count as u32,
                 &mut next_col_split,
@@ -222,10 +213,11 @@ fn main() -> Result<(), Box<dyn Error>> {
                 dir,
                 args.prefix_for_split.as_ref().unwrap(),
                 args.test_split,
-            )?
+            )?;
+            pb.inc(1);
         }
     }
+    pb.finish_with_message(format!("Split images saved. Windows processed: {}", pb.position()));
 
-    pb.finish_with_message(format!("Frames processed: {}", pb.position()));
     Ok(())
 }
