@@ -158,7 +158,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         pb.inc(1);
     }
-    pb.finish_with_message(format!("Frames processed: {}", pb.position()));
+    let processed = pb.position();
+    pb.finish_with_message(format!("Frames processed: {}", processed));
 
     if let Some(output) = args.output {
         let n = spectrogram.len() as u32;
@@ -184,7 +185,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
         image.save(output)?;
     }
-    pb.finish_with_message(format!("Image saved. Frames processed: {}", pb.position()));
+    let processed = pb.position();
+    pb.finish_with_message(format!("Image saved. Frames processed: {}", processed));
 
     if let Some(dir) = args.split_output_dir.as_ref() {
         let windows = spectrogram.windows(224);
@@ -217,7 +219,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             pb.inc(1);
         }
     }
-    pb.finish_with_message(format!("Split images saved. Windows processed: {}", pb.position()));
+    let processed = pb.position();
+    pb.finish_with_message(format!("Split images saved. Windows processed: {}", processed));
 
     Ok(())
 }
