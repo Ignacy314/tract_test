@@ -45,7 +45,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let args = GenerateArgs::parse();
     let mut reader = hound::WavReader::open(args.input)?;
     let mut w = BufWriter::new(File::create(args.output)?);
-    let n = (reader.duration() - 4096) / 4096;
+    const HEIGHT: usize = N_FFT / 2 + 1;
+    let n = (reader.duration() - N_FFT as u32) / HOP_LENGTH as u32 + 1;
 
     let pb = ProgressBar::new(u64::from(n));
     let t = f64::from(n).log10().ceil() as u64;
@@ -82,20 +83,20 @@ fn main() -> Result<(), Box<dyn Error>> {
             amplitude_to_db(&mut col);
             min_max_scale(&mut col);
 
-            for s in &col[..4096] {
+            for s in &col[..(HEIGHT - 1)] {
                 write!(w, "{s},")?;
             }
-            writeln!(w, "{}", col[4096])?;
+            writeln!(w, "{}", col[HEIGHT - 1])?;
             pb.inc(1);
         }
     }
     for mut col in stft.process_tail() {
         amplitude_to_db(&mut col);
         min_max_scale(&mut col);
-        for s in &col[..4096] {
+        for s in &col[..(HEIGHT - 1)] {
             write!(w, "{s},")?;
         }
-        writeln!(w, "{}", col[4096])?;
+        writeln!(w, "{}", col[HEIGHT])?;
         pb.inc(1);
     }
     pb.finish_with_message(format!("Frames processed: {}", pb.position()));

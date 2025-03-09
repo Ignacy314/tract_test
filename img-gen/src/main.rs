@@ -97,8 +97,8 @@ fn split(
 fn main() -> Result<(), Box<dyn Error>> {
     let args = ImgGenArgs::parse();
     let mut reader = hound::WavReader::open(args.input)?;
-    const HEIGHT: u32 = 4097;
-    let n = (reader.duration() - 4096) / 4096;
+    const HEIGHT: u32 = N_FFT as u32 / 2 + 1;
+    let n = (reader.duration() - N_FFT as u32) / HOP_LENGTH as u32 + 1;
     let pb = ProgressBar::new(u64::from(n));
     let t = f64::from(n).log10().ceil() as u64;
     pb.set_style(
