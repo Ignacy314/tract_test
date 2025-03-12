@@ -101,17 +101,19 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
         }
     }
-    for mut col in stft.process_tail() {
-        amplitude_to_db(&mut col);
-        min_max_scale(&mut col);
-        for s in &col[..(HEIGHT - 1)] {
-            write!(w, "{s},")?;
-        }
-        writeln!(w, "{}", col[HEIGHT])?;
-        pb.inc(1);
-        i += 1;
-        if i == n {
-            break;
+    if i < n {
+        for mut col in stft.process_tail() {
+            amplitude_to_db(&mut col);
+            min_max_scale(&mut col);
+            for s in &col[..(HEIGHT - 1)] {
+                write!(w, "{s},")?;
+            }
+            writeln!(w, "{}", col[HEIGHT])?;
+            pb.inc(1);
+            i += 1;
+            if i == n {
+                break;
+            }
         }
     }
     let processed = pb.position();
