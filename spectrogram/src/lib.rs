@@ -8,7 +8,7 @@ use realfft::num_complex::Complex;
 use realfft::{RealFftPlanner, RealToComplex};
 use strider::{SliceRing, SliceRingImpl};
 
-pub const N_FFT: usize = 32768;
+pub const N_FFT: usize = 8192;
 pub const HOP_LENGTH: usize = 429;
 pub const FILTER_WIDTH: usize = 33;
 pub const HALF_FILTER_WIDTH: usize = FILTER_WIDTH / 2;
