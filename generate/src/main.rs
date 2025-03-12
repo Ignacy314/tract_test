@@ -37,8 +37,10 @@ struct GenerateArgs {
     //amp_to_db: bool,
     //#[arg(short, long)]
     //min_max_scale: bool,
-    #[arg(short, long)]
+    #[arg(short = 'k', long)]
     skip: Option<usize>,
+    #[arg(short, long)]
+    frames: Option<u32>,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -47,6 +49,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut w = BufWriter::new(File::create(args.output)?);
     const HEIGHT: usize = N_FFT / 2 + 1;
     let n = (reader.duration() - N_FFT as u32) / HOP_LENGTH as u32 + 1;
+    let n = if let Some(frames) = args.frames {
+        frames.min(n)
+    } else {
+        n
+    };
 
     let pb = ProgressBar::new(u64::from(n));
     let t = f64::from(n).log10().ceil() as u64;
@@ -69,7 +76,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let skip = args.skip.unwrap_or(1);
 
-    //let mut i = 0;
+    let mut i = 0;
     let mut stft = Stft::new(N_FFT, HOP_LENGTH, pattern);
     let samples = reader.samples::<i32>().step_by(skip);
     for s in samples {
@@ -88,6 +95,10 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
             writeln!(w, "{}", col[HEIGHT - 1])?;
             pb.inc(1);
+            i += 1;
+            if i == n {
+                break;
+            }
         }
     }
     for mut col in stft.process_tail() {
@@ -98,6 +109,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
         writeln!(w, "{}", col[HEIGHT])?;
         pb.inc(1);
+        i += 1;
+        if i == n {
+            break;
+        }
     }
     let processed = pb.position();
     pb.finish_with_message(format!("Frames processed: {}", processed));
