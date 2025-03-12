@@ -99,6 +99,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         writeln!(w, "{}", col[HEIGHT])?;
         pb.inc(1);
     }
-    pb.finish_with_message(format!("Frames processed: {}", pb.position()));
+    let processed = pb.position();
+    pb.finish_with_message(format!("Frames processed: {}", processed));
     Ok(())
 }
